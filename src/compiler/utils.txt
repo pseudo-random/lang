@@ -22,7 +22,7 @@
 
 (import test)
 
-; Move to standart library?
+; Move to standard library?
 (defn array-values [expr]
   (-> (keys expr)
       (map (fn [x] (nth expr x)))))

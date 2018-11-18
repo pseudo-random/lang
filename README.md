@@ -41,7 +41,7 @@ $ python3 src/compiler_py/main.py <filename>
 ##### Documentation
 
 - **Various Examples:** doc/examples
-- **Standart Library Documentation:** doc/lib (TODO)
+- **Standard Library Documentation:** doc/lib (TODO)
 
 ##### Tutorials
 
@@ -65,12 +65,12 @@ Just remember to be nice.
 - **doc**: Documentation
   - **examples**: Various Examples
   - **getting-started**: "Getting Started" Tutorial
-  - **lib**: Standart Library Documentation
-- **lib**: The standart library
+  - **lib**: Standard Library Documentation
+- **lib**: The standard library
 - **src**
   - **compiler**: Self-Hosted implementation of the compiler
     - **runtime**: Runtimes for the different compilation targets
   - **compiler_py**: Messy compiler prototype written in python
-- **test**: Unit Tests for the standart library
+- **test**: Unit Tests for the standard library
   - **misc**: Other tests
     - **speed**: Simple files to test the speed of the language
