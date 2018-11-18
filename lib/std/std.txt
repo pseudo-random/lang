@@ -1,0 +1,485 @@
+; MIT License
+;
+; Copyright (c) 2018 pseudo-random <josh.leh.2018@gmail.com>
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+# Operators
+(defn not [x] (if x false true))
+(defn = [a b] (internal eq a b))
+(defn < [a b] (internal lt a b))
+(defn > [a b] (internal gt a b))
+(defn != [a b] (not (= a b)))
+
+(defn >= [a b] (or (> a b) (= a b)))
+(defn <= [a b] (or (< a b) (= a b)))
+
+(defn + [a b] (internal add a b))
+(defn - [a b] (internal sub a b))
+(defn * [a b] (internal mul a b))
+(defn / [a b] (internal div a b))
+(defn % [a b] (internal mod a b))
+(defn floor [x] (internal floor x))
+(defn sq [x] (* x x))
+(defn sqrt [x] (internal sqrt x))
+(defn neg [x] (* x -1))
+(defn abs [x] (if (> x 0) x (neg x)))
+(defn sign [x]
+  (cond
+    (= x 0) 0
+    (> x 0) 1
+    (< x 0) -1))
+
+(defn incr [x] (+ 1 x))
+(defn decr [x] (+ -1 x))
+
+(defn ^ [a b]
+  (if (= b 0)
+    1
+    (* a (^ a (decr b)))))
+
+(defn div? [a b] (= 0 (% a b)))
+(defn even? [x] (div? x 2))
+(defn odd? [x] (= false (even? x)))
+(defn true? [x] (if x true false))
+
+(defn identity [x] x)
+
+# Bitwise Operators
+(defn bit-and [a b] (internal bit-and a b))
+(defn bit-or [a b] (internal bit-or a b))
+(defn bit-xor [a b] (internal bit-xor a b))
+(defn bit-shift-right [a b] (internal bit-rshift a b))
+(defn bit-shift-left [a b] (internal bit-lshift a b))
+
+# Loops
+;(defn repeat-inf [func]
+;  (func)
+;  (recur func))
+
+# Collection
+(defn nth [collection index] (internal index collection index))
+(def !! nth)
+
+(defn len [collection] (internal len collection))
+(defn empty-of [collection] (internal empty-of collection))
+
+(defn into [from to]
+  (if (empty? from)
+    to
+    (prepend
+      (into (rest from) to)
+      (first from))))
+
+# Array
+(defn insert [arr key value] (internal insert arr key value))
+(defn remove [arr key value] (internal remove arr key value))
+(defn keys [arr] (internal keys arr))
+
+(defn map-pairs [array func]
+  (fold (keys array) {} (fn [key acc]
+    (insert acc key (func key (nth array key))))))
+
+; TODO: When a key is both in a and b, values are different => return nil?
+(defn merge [a b]
+  (fold (keys a) b (fn [key acc]
+    (insert acc key (nth a key)))))
+
+# Lists
+(defn first [list] (internal first list))
+(defn second [list] (nth list 1))
+(defn third [list] (nth list 2))
+(defn fourth [list] (nth list 3))
+(defn fifth [list] (nth list 4))
+
+(defn rest [list] (internal rest list))
+(defn second-rest [list] (rest (rest list)))
+(defn third-rest [list] (rest (rest (rest list))))
+(defn fourth-rest [list] (rest (rest (rest (rest list)))))
+(defn fifth-rest [list] (rest (rest (rest (rest (rest list))))))
+
+(defn last [list] (nth list (decr (len list))))
+
+(defn empty? [list] (internal empty list))
+(defn not-empty? [list] (not (empty? list)))
+
+(defn prepend [list x] (internal prepend list x))
+
+(defn append [list x]
+  (defn fun [cur]
+    (if (empty? cur)
+      (prepend cur x)
+      (prepend (fun (rest cur))
+               (first cur))))
+  (fun list))
+
+(defn init [list]
+  (cond
+    (empty? list) list
+    (empty? (rest list)) (empty-of list)
+    :else (prepend (init (rest list))
+                   (first list))))
+
+
+(defn map [list func]
+  (if (empty? list)
+    list
+    (prepend
+      (map (rest list) func)
+      (func (first list)))))
+
+(defn filter [list func]
+  (if (empty? list)
+    list
+    (if (func (first list))
+      (prepend
+        (filter (rest list) func)
+        (first list))
+      (recur (rest list) func))))
+
+(defn reject [list func]
+  (if (empty? list)
+    list
+    (if (not (func (first list)))
+      (prepend
+        (reject (rest list) func)
+        (first list))
+      (recur (rest list) func))))
+
+(defn reduce [list func]
+  (defn fun [x xs]
+    (if (empty? xs) x
+      (recur
+        (func x (first xs))
+        (rest xs))))
+
+  (fun (first list) (rest list)))
+
+(defn fold [list start func]
+  (defn fun [xs x]
+    (if (empty? xs) x
+      (recur
+        (rest xs)
+        (func (first xs) x))))
+
+  (fun list start))
+
+(defn fold-2 [list start func]
+  (defn fun [xs x]
+    (if (empty? xs) x
+      (recur
+        (rest (rest xs))
+        (func (first xs) (second xs) x))))
+
+  (fun list start))
+
+(defn each [list func]
+  (unless (empty? list)
+    (func (first list))
+    (recur (rest list) func)))
+
+(defn range [from to]
+  ((fn [list index]
+    (if (= index from)
+      list
+      (recur (prepend list (decr index))
+             (decr index))))
+   [] to))
+
+(defn sum [list]
+  (reduce list +))
+
+(defn zip [a b]
+  (if (or (empty? a) (empty? b))
+    []
+    (prepend
+      (zip (rest a) (rest b))
+      [(first a) (first b)])))
+
+(defn zip-with [a b func]
+  (if (or (empty? a) (empty? b))
+    []
+    (prepend
+      (zip-with (rest a) (rest b) func)
+      (func (first a) (first b)))))
+
+(defn filter-it' [list func it]
+  (if (empty? list)
+    list
+    (if (func (first list) it)
+      (prepend
+        (filter-it' (rest list) func (incr it))
+        (first list))
+      (recur (rest list) func (incr it)))))
+
+(defn filter-it [list func] (filter-it' list func 0))
+
+(defn each-it' [list func it]
+  (unless (empty? list)
+    (func it (first list))
+    (recur (rest list) func (incr it))))
+
+(defn each-it [list func] (each-it' list func 0))
+
+# Drop, Take, Slice
+(defn drop [list num]
+  (if (= num 0)
+    list
+    (recur (rest list) (decr num))))
+
+(defn take [list num]
+  (if (= num 0)
+    (empty-of list)
+    (prepend
+      (take (rest list) (decr num))
+      (first list))))
+
+(defn drop-while [list func]
+  (cond
+    (empty? list)       list
+    (func (first list)) (recur (rest list) func)
+    :else               list))
+
+(defn take-while [list func]
+  (if (and (not-empty? list) (func (first list)))
+    (prepend (take-while (rest list) func)
+             (first list))
+    (empty-of list)))
+
+(defn slice [list a b]
+  (-> (drop list a)
+      (take (- b a))))
+
+(defn concat [list0 list1]
+  (if (empty? list0)
+    list1
+    (prepend
+      (concat (rest list0) list1)
+      (first list0))))
+
+(defn where [list path item]
+  (cond
+    (empty? path)       item
+    (= (first path) -1) (append (init list)
+                                (where (last list) (rest path) item))
+    :else               (let [index (first path)]
+                          (concat (take list index)
+                                  (prepend (drop list (incr index))
+                                           (where (nth list index)
+                                                  (rest path) item))))))
+
+(defn find [list func]
+  (if (empty? list)
+    nil
+    (if (func (first list))
+      (first list)
+      (recur (rest list) func))))
+
+(defn in? [item list]
+  (if (empty? list)
+    false
+    (if (= (first list) item)
+      true
+      (recur item (rest list)))))
+
+(defn any? [list func]
+  (if (empty? list)
+    false
+    (or
+      (func (first list))
+      (recur (rest list) func))))
+
+(defn every? [list func]
+  (if (empty? list)
+    true
+    (if (func (first list))
+      (recur (rest list) func)
+      false)))
+
+(defn reshape-width [list width]
+  (if (empty? list)
+    list
+    (prepend (reshape-width (drop list width) width)
+             (take list width))))
+
+(defn split-at [list index]
+  [(take list index) (drop list index)])
+
+(defn split-while [list func]
+  [(take-while list func) (drop-while list func)])
+
+(defn flat-map [list func]
+  (if (empty? list)
+    list
+    (concat
+      (func (first list))
+      (flat-map (rest list) func))))
+
+(defn join [list item]
+  (if (empty? list)
+    []
+    (-> list
+        (flat-map (curry prepend item))
+        (rest))))
+
+(defn flat-join [list item]
+  (if (empty? list)
+    []
+    (-> list
+        (flat-map (fn [x] (concat item x)))
+        (drop (len item)))))
+
+(defn group-by [list func]
+  (fold list {} (fn [item acc]
+    (let [key (func item)
+          group (or (nth acc key) [])]
+      (insert acc key (prepend group item))))))
+
+; TODO: Use polymorphic function
+(defn reverse-into [list yet]
+  (if (empty? list)
+    yet
+    (recur (rest list)
+           (prepend yet (first list)))))
+
+(defn reverse [list]
+  (reverse-into list (empty-of list)))
+
+; TODO: Use polymorphic function
+(defn repeat-into [item times yet]
+  (if (<= times 0)
+    yet
+    (recur item (decr times)
+           (prepend yet item))))
+
+(defn repeat [item times]
+  (repeat-into item times []))
+
+# Types
+(defn typeof [x] (internal type x))
+(defn int? [x] (= (typeof 0) (typeof x)))
+(defn float? [x] (= (typeof 0.1) (typeof x)))
+(defn bool? [x] (= (typeof true) (typeof x)))
+(defn char? [x] (= (typeof \a) (typeof x)))
+(defn symbol? [x] (= (typeof (quote a)) (typeof x)))
+(defn list? [x] (= (typeof []) (typeof x)))
+(defn array? [x] (= (typeof {}) (typeof x)))
+(defn nil? [x] (= (typeof nil) (typeof x)))
+(defn str? [x] (= (typeof "") (typeof x)))
+
+(defn ->int [x] (internal to-int x))
+(defn ->char [x] (internal to-char x))
+(defn ->symbol [x] (internal to-symbol x))
+
+# Fn Module
+(defmodule f
+  (defn or conds
+    (fn [x]
+      (any? conds
+        (fn [c] (c x)))))
+
+  (defn eq [x]
+    (fn [y] (= x y))))
+
+#
+;(defn pattern conds
+;  (fn [x]
+;    (every? conds
+;      (fn [c] (c x)))))
+
+(defn number? [x] (or (int? x) (float? x)))
+(defn pos? [x] (and (number? x) (> x 0)))
+(defn neg? [x] (and (number? x) (< x 0)))
+(defn zero? [x] (and (number? x) (= x 0)))
+
+(defn letter? [x]
+  (or (and (<= (->int \A) (->int x))
+           (>= (->int \Z) (->int x)))
+      (and (<= (->int \a) (->int x))
+           (>= (->int \z) (->int x)))))
+
+(defn digit? [x]
+  (and (<= (->int \0) (->int x))
+       (>= (->int \9) (->int x))))
+
+# Vector
+(defn vector* items items)
+(defn vector? [x] (= (typeof x) (typeof (vector*))))
+
+# String
+(defn ->str [a]
+  (internal to-str a))
+
+(defn interpose [strings item]
+  (defn interpose' [strs yet]
+    (if (empty? strs)
+      yet
+      (recur (rest strs)
+             (internal add yet (internal add item (first strs))))))
+
+  (if (empty? strings)
+    ""
+    (interpose' (rest strings)
+                (first strings))))
+
+; (format "(+ 1 2) = " (+ 1 2))
+(defn format strings
+  (-> strings
+      (map ->str)
+      (reduce (fn [a b]
+        (internal add a b)))))
+
+(defn prn [x] (internal prn x))
+
+(defn split [str delimiter]
+  (if (empty? str)
+    [""]
+    (let [word (take-while str (curry != delimiter))
+          rst  (drop-while str (curry != delimiter))]
+      (if (empty? rst)
+        [word]
+        (prepend (split (rest rst) delimiter)
+                 word)))))
+
+# Set
+(defn set* items
+  ((type set items) (fold items {} (fn [item acc]
+    (insert acc item true)))))
+
+; TODO: Implement keys function
+(defn set-items [set]
+  (keys set/items))
+
+# I/O
+(defn write [text]
+  (internal write text))
+
+(defn terpri []
+  (write \\n))
+
+(defn print [text]
+  (internal print text))
+
+(defn input [text]
+  (write text)
+  (internal read))
+
+(defn log [x]
+  (print x)
+  x)

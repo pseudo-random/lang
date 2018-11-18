@@ -1,0 +1,30 @@
+(import test)
+
+(defn prime? [x]
+  (defn prime' [div]
+    (cond
+      (= div 1)    true
+      (div? x div) false
+      :else        (recur (decr div))))
+  (if (> x 0)
+    (prime' (decr x))
+    false))
+
+(test/test "prime?"
+  (prime? 10) = false
+  (prime? 1)  = false
+  (prime? 4)  = false
+  (prime? 90) = false
+  (prime? 27) = false
+  (prime? 35) = false
+
+  (prime? -1) = false
+  (prime? -7) = false
+  (prime? -4) = false
+
+  (prime? 2)  = true
+  (prime? 3)  = true
+  (prime? 5)  = true
+  (prime? 7)  = true
+  (prime? 11) = true
+  (prime? 13) = true)

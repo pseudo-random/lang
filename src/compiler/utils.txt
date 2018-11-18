@@ -1,0 +1,139 @@
+; MIT License
+;
+; Copyright (c) 2018 pseudo-random <josh.leh.2018@gmail.com>
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+(import test)
+
+; Move to standart library?
+(defn array-values [expr]
+  (-> (keys expr)
+      (map (fn [x] (nth expr x)))))
+
+(defn call? [expr callee]
+  (and (list? expr)
+       (not-empty? expr)
+       (= (first expr) callee)))
+
+(defn remove-quotes [expr]
+  (cond
+    (or (call? expr :quote)
+        (call? expr :unquote)) (remove-quotes (second expr))
+    (list? expr)               (map expr remove-quotes)
+    :else                      expr))
+
+(defn special-form? [expr]
+  (and (list? expr)
+       (or (= :do (first expr))
+           (= :fn* (first expr))
+           (= :def* (first expr))
+           (= :let* (first expr))
+           (= :recur (first expr))
+           (= :if (first expr))
+           (= :defmacro (first expr))
+           (= :internal (first expr)))))
+
+(defn quote? [expr]
+  (call? expr :quote))
+
+(defn unquote? [expr]
+  (call? expr :unquote))
+
+(defn get-locals-block [block start]
+  (fold block start (fn [e locals]
+                      (if (call? e :def*)
+                        (prepend locals (second e))
+                        locals))))
+
+(defn get-locals [expr]
+  (cond
+    (call? expr :do)   (get-locals-block (rest expr) [])
+    (call? expr :fn*)  (get-locals-block (rest (rest expr)) (remove-quotes (second expr)))
+    (call? expr :let*) (get-locals-block (rest (rest expr)) (filter-it (remove-quotes (second expr)) (fn [x it] (div? it 2))))
+    :else []))
+
+(defn escape-char [char]
+  (cond
+    (= char \\n) "\\n"
+    (= char \\r) "\\r"
+    (= char \\t) "\\t"
+    (= char \\\) "\\\\"
+    (= char \")  "\\\""
+
+    :else        (->str char)))
+
+(defn quoted [expr depth eval]
+  (cond
+    (quote? expr)   (recur (second expr) (incr depth) eval)
+    (unquote? expr) (recur (second expr) (decr depth) eval)
+
+    (= depth 0)     (eval expr)
+    (list? expr)    (map expr (fn [item]
+                      (quoted item depth eval)))
+    :else           expr))
+
+(defn walk-quoted [expr depth walk]
+  (cond
+    (quote? expr)   [:quote (walk-quoted (second expr) (incr depth) walk)]
+    (unquote? expr) [:unquote (walk-quoted (second expr) (decr depth) walk)]
+
+    (= depth 0)     (walk expr)
+    (list? expr)    (map expr (fn [item]
+                      (walk-quoted item depth walk)))
+    :else           expr))
+
+(defn collect-quoted [expr depth collect]
+  (cond
+    (quote? expr)   (recur (second expr) (incr depth) collect)
+    (unquote? expr) (recur (second expr) (decr depth) collect)
+
+    (= depth 0)     (collect expr)
+    (list? expr)    (flat-map expr (fn [item]
+                      (collect-quoted item depth collect)))
+    :else           []))
+
+(defn children-of-node [node]
+  (cond
+    (or (= node/type :do)
+        (= node/type :root)
+        (= node/type :block)
+        (= node/type :s-expr)
+        (= node/type :vector)
+        (= node/type :list))  node/children
+    (= node/type :fn)         node/body
+    (= node/type :internal)   node/params
+    (= node/type :if)         [node/cond node/when node/else]
+    (= node/type :def)        [node/value]
+    (= node/type :assign)     [node/value]
+    (= node/type :return)     [node/value]
+    (= node/type :if-statement) [node/cond node/when node/else]
+    (= node/type :array)        (concat node/keys node/values)
+    :else []))
+
+(test/test "utils/remove-quotes"
+  (remove-quotes (quote (quote a))) = (quote a)
+  (remove-quotes (quote (quote (unquote (a b c))))) = (quote (a b c)))
+
+(test/test "utils/get-locals"
+  (get-locals (quote (do (def* a abc))))                      = [:a]
+  (get-locals (quote (do (def* a abc) (def* b abc))))         = [:b :a]
+  (get-locals (quote (if (= 2 1) (def* a abc) (def* b abc)))) = []
+  (get-locals (quote (fn* [a b c] (print (+ a b c)))))        = [:a :b :c]
+  (get-locals (quote (let* [a 1 b 2] (def* c 1) a)))          = [:c :a :b])

@@ -1,0 +1,167 @@
+; MIT License
+;
+; Copyright (c) 2018 pseudo-random <josh.leh.2018@gmail.com>
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+(import utils)
+(import test)
+
+; TODO: Use (import utils [call?])
+(def call? utils/call?)
+
+(defn transform [expr quote-depth]
+  (cond
+    (call? expr :quote) (if (> quote-depth 0)
+                          {:type :list
+                           :children [
+                             {:type :symbol :value :quote :id (->int :quote)}
+                             (transform (second expr) (incr quote-depth))]}
+                          (transform (second expr) (incr quote-depth)))
+
+    (call? expr :unquote) (if (> quote-depth 1)
+                            {:type :list
+                             :children [
+                               {:type :symbol :value :unquote :id (->int :unquote)}
+                               (transform (second expr) (decr quote-depth))]}
+                            (transform (second expr) (decr quote-depth)))
+
+    (and (list? expr)
+         (> quote-depth 0)) {:type     :list
+                             :children (map expr (curry transform quote-depth))}
+
+    (call? expr :def*) {:type  :def
+                        :name  (second expr)
+                        :value (transform (third expr) quote-depth)}
+    (call? expr :do)   {:type     :do
+                        :children (map (rest expr)
+                                       (curry transform quote-depth))}
+
+    (call? expr :if)   {:type :if
+                        :cond (transform (second expr) quote-depth)
+                        :when (transform (third expr) quote-depth)
+                        :else (transform (fourth expr) quote-depth)}
+
+    (call? expr :fn*)  {:type   :fn
+                        :params (transform (second expr) 0)
+                        :body   (map (rest (rest expr))
+                                     (curry transform quote-depth))}
+
+    (call? expr :type) {:type :type
+                        :name (transform (second expr) 0)
+                        :keys (map (second-rest expr) (curry transform 0))}
+
+    (call? expr :recur)    {:type   :recur
+                            :params (map (rest expr) (curry transform quote-depth))}
+
+    (call? expr :internal) {:type   :internal
+                            :name   (second expr)
+                            :params (map (rest (rest expr)) (curry transform quote-depth))}
+
+    (call? expr :import)   {:type    :import
+                            :modules (rest expr)}
+
+    (list? expr)   {:type     :s-expr
+                    :children (map expr (curry transform quote-depth))}
+    (symbol? expr) {:type  (if (> quote-depth 0) :symbol :name)
+                    :value expr
+                    :id    (->int expr)}
+
+    (array? expr)  {:type   :array
+                    :keys   (-> (keys expr)
+                                (map (curry transform 0))) ; TODO: quoted arrays?
+                    :values (-> (map (keys expr) (fn [key] (nth expr key)))
+                                (map (curry transform quote-depth)))}
+    (vector? expr) {:type :vector
+                    :children (into (map expr (curry transform quote-depth)) [])}
+    (str? expr)    {:type :str
+                    :value expr}
+    (int? expr)    {:type  :int
+                    :value expr}
+    (float? expr)  {:type  :float
+                    :value expr}
+    (bool? expr)   {:type  :bool
+                    :value expr}
+    (char? expr)   {:type  :char
+                    :value expr}
+    (nil? expr)    {:type  :nil
+                    :value nil}))
+
+(defn to-syntax-tree [expr]
+  (transform expr 0))
+
+(test/unittest "transform/to-syntax-tree"
+  (test/eq (to-syntax-tree (quote 1))
+           {:type :int :value 1})
+  (test/eq (to-syntax-tree (quote true))
+           {:type :bool :value true})
+  (test/eq (to-syntax-tree (quote 1.2))
+           {:type :float :value 1.2})
+  (test/eq (to-syntax-tree (quote (1 2 3)))
+           {:type     :s-expr
+            :children [{:type  :int
+                        :value 1}
+                       {:type  :int
+                        :value 2}
+                       {:type  :int
+                        :value 3}]})
+  (test/eq (to-syntax-tree (quote (quote (1 2 3))))
+           {:type     :list
+            :children [{:type  :int
+                        :value 1}
+                       {:type  :int
+                        :value 2}
+                       {:type  :int
+                        :value 3}]})
+  (test/eq (to-syntax-tree (quote :hello))
+           {:type  :symbol
+            :value :hello
+            :id    (->int :hello)})
+  (test/eq (to-syntax-tree (quote (quote (unquote hello))))
+           {:type  :name
+            :value :hello
+            :id    (->int :hello)})
+  (test/eq (to-syntax-tree (quote (def* a 1)))
+           {:type :def
+            :name :a
+            :value {:type :int
+                    :value 1}})
+  (test/eq (to-syntax-tree (quote (fn* [] (def* a 1))))
+           {:type :fn
+            :params {:type :list :children []}
+            :body [(to-syntax-tree (quote (def* a 1)))]})
+
+  (test/eq (to-syntax-tree (quote (recur)))
+           {:type :recur :params []})
+
+  (test/eq (to-syntax-tree (vector* 1 2 3))
+           {:type :vector
+            :children [{:type :int :value 1}
+                       {:type :int :value 2}
+                       {:type :int :value 3}]})
+
+  (test/eq (to-syntax-tree (quote {}))
+           {:type   :array
+            :keys   []
+            :values []})
+
+  (test/eq (to-syntax-tree (quote (fn* [x] (recur))))
+           {:type :fn
+            :params {:type :list :children [{:type :name :value :x :id 1}]}
+            :body [{:type :recur :params []}]}))

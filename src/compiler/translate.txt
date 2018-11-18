@@ -1,0 +1,197 @@
+; MIT License
+;
+; Copyright (c) 2018 pseudo-random <josh.leh.2018@gmail.com>
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+(defn create-context []
+  {:statement-level true
+   :in-function     false
+   :in-return       false})
+
+(defn walk' [node key func ctx]
+  (insert node key
+          (map (nth node key)
+               (curry walk func ctx))))
+
+(defn walk [node-old func ctx]
+  (def node (func node-old ctx))
+  (cond
+    (or (= node/type :do)
+        (= node/type :root)
+        (= node/type :block)) (walk' node :children func (insert ctx :statement-level true))
+
+    (or (= node/type :s-expr)
+        (= node/type :vector)
+        (= node/type :list))  (walk' node :children func (insert ctx :statement-level false))
+
+    (= node/type :fn)         (walk' node :body func (-> ctx
+                                                         (insert :statement-level true)
+                                                         (insert :in-function true)
+                                                         (insert :in-return false)
+                                                         (insert :current-function node)))
+    (= node/type :internal)   (walk' node :params func (insert ctx :statement-level false))
+    (= node/type :if)         (-> node
+                                  (insert :cond (walk node/cond func (insert ctx :statement-level false)))
+                                  (insert :when (walk node/when func (insert ctx :statement-level false)))
+                                  (insert :else (walk node/else func (insert ctx :statement-level false))))
+    (= node/type :def)        (-> node
+                                  (insert :value (walk node/value func (insert ctx :statement-level false))))
+
+    (= node/type :assign)     (-> node
+                                  (insert :value (walk node/value func (insert ctx :statement-level false))))
+
+    (= node/type :return)     (-> node
+                                  (insert :value (walk node/value func (-> (insert ctx :statement-level false)
+                                                                           (insert ctx :in-return true)))))
+    (= node/type :if-statement) (-> node
+                                    (insert :cond (walk node/cond func (insert ctx :statement-level false)))
+                                    (insert :when (walk node/when func (insert ctx :statement-level true)))
+                                    (insert :else (walk node/else func (insert ctx :statement-level true))))
+
+    (= node/type :array)        (-> node
+                                    (walk' :keys func (insert ctx :statement-level false))
+                                    (walk' :values func (insert ctx :statement-level false)))
+
+    :else node))
+
+
+(defn add-return-statement [node]
+  (cond
+    (= node/type :if-statement) (-> node
+                                    (insert :when (add-return-statement node/when))
+                                    (insert :else (add-return-statement node/else)))
+
+    (= node/type :block) (insert node :children
+                                 (append (init node/children)
+                                         (add-return-statement (last node/children))))
+    (= node/type :tail-call) node
+
+    :else {:type  :return
+           :value node}))
+
+(defn add-return-statements [node ctx]
+  (if (= node/type :fn)
+    (insert node :body (append (init node/body)
+                               (add-return-statement (last node/body))))
+    node))
+
+(defn convert-exprs-to-statemets [node ctx]
+  (cond
+    (and (= node/type :do)
+         ctx/statement-level) (insert node :type :block)
+    (and (= node/type :if)
+         ctx/statement-level) (insert node :type :if-statement)
+    :else node))
+
+(defn convert-do-expressions-to-functions [node ctx]
+  (cond
+    (= node/type :do)
+      {:type     :s-expr
+       :children [{:type   :fn
+                   :params {:type     :list
+                            :children []}
+                   :body   node/children
+                   :locals nil}]}
+    :else node))
+
+(defn flatten-blocks [node ctx]
+  node)
+
+(defn tail-recursive? [node]
+  (cond
+    (or (= node/type :do)
+        (= node/type :block)) (-> (map node/children tail-recursive?)
+                                  (any? true?))
+    (= node/type :if)     (or (tail-recursive? node/when)
+                              (tail-recursive? node/else))
+
+    (= node/type :return) (tail-recursive? node/value)
+    (= node/type :recur)  true
+    :else false))
+
+(defn find-tail-recursive-funcs [node ctx]
+  (cond
+    (= node/type :fn) (insert node :recur? (-> (map node/body tail-recursive?)
+                                               (any? true?)))
+    :else node))
+
+(defn translate-recur [node ctx]
+  (if (= node/type :recur)
+    {:type     :block
+     :children [{:type  :assign
+                 :name  {:type  :vector
+                         :children ctx/current-function/params/children}
+                 :value {:type  :vector
+                         :children node/params}}
+                {:type :tail-call}]}
+    node))
+
+(defn optimize-tail-calls [node ctx]
+  (cond
+    (and (= node/type :fn)
+         node/recur?)      (insert node :body
+                                   [{:type :while
+                                     :cond {:type :bool :value true}
+                                     :children node/body}])
+    :else node))
+
+(defn convert-varargs-to-spread [node ctx]
+  (if (and (= node/type :fn) (= node/params/type :name))
+    (insert node :params {:type     :list
+                          :children [{:type  :spread
+                                      :child node/params}]})
+    node))
+
+(defn translate-tail-recur [node ctx]
+  (-> node
+      (find-tail-recursive-funcs ctx)
+      (translate-recur ctx)))
+
+(defn translate-to-statements [node ctx]
+  (-> node
+      (convert-exprs-to-statemets ctx)
+      (convert-do-expressions-to-functions ctx)
+      (flatten-blocks ctx)))
+
+(defn translate [ast]
+  (-> ast
+      (walk translate-tail-recur (create-context))
+      (walk translate-to-statements (create-context))
+
+      (walk add-return-statements (create-context))
+      (walk optimize-tail-calls (create-context))
+
+      (walk convert-varargs-to-spread (create-context))))
+
+(import test)
+(import transform)
+
+(test/test "translate/tail-recursive?"
+  (tail-recursive? (transform/to-syntax-tree (quote (do (recur))))) = true
+  (tail-recursive? (transform/to-syntax-tree (quote (if x (recur) x)))) = true
+  (tail-recursive? (transform/to-syntax-tree (quote (do 1 2 3)))) = false
+  (tail-recursive? (transform/to-syntax-tree (quote (if x x y)))) = false
+  (tail-recursive? (transform/to-syntax-tree (quote (recur 1 2 3)))) = true)
+
+(test/test "translate/find-tail-recursive-funcs"
+  (-> (transform/transform (quote (fn* [x] x)) 0)
+      (find-tail-recursive-funcs {})) = (insert (transform/transform (quote (fn* [x] x)) 0) :recur? false)
+  (-> (transform/transform (quote (fn* [x] (recur))) 0)
+      (find-tail-recursive-funcs {})) = (insert (transform/transform (quote (fn* [x] (recur)))) :recur? true))

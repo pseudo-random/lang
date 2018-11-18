@@ -1,0 +1,83 @@
+; MIT License
+;
+; Copyright (c) 2018 pseudo-random <josh.leh.2018@gmail.com>
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+; TODO: Use (import utils [...])
+(import utils)
+(def collect-quoted utils/collect-quoted)
+(def quote? utils/quote?)
+(def call? utils/call?)
+
+(import io)
+(import parser)
+(import macro-expand)
+
+(def FILE_EXTENSION ".txt")
+
+(defn collect-dependencies [block module-path]
+  (def paths [["lib"] (init module-path)])
+
+  (defn module-paths [name]
+    (-> (flat-map paths (fn [path]
+          [(append path (format name FILE_EXTENSION))
+           (concat path [name (format name FILE_EXTENSION)])]))
+        (filter io/exists?)))
+
+  (defn collect-module [name]
+    (let [paths (module-paths (->str name))]
+      (if (empty? paths)
+        (do (print (format "Module " name " is not installed."))
+            [])
+        [(first paths)])))
+
+  (defn collect-modules-from-import [names]
+    (flat-map names collect-module))
+
+  (defn array-values [expr]
+    (map (keys expr) (fn [key]
+      (nth expr key))))
+
+  (defn collect-expr [expr]
+    (cond
+      (quote? expr :quote) (collect-quoted (second expr) 1 collect-expr)
+      (call? expr :import) (collect-modules-from-import (rest expr))
+      (list? expr)         (flat-map expr collect-expr)
+      (array? expr)        (concat (flat-map (keys expr) collect-expr)
+                                   (flat-map (array-values expr) collect-expr))
+      :else                []))
+
+  (flat-map block collect-expr))
+
+(print (collect-dependencies (quote ((import test-module test-module)
+                                     (abc 123 (import test))
+                                     {:a (import test-module)})) []))
+
+(defn to-module [ast name symbols]
+  {:type     :module
+   :name     name
+   :symbols  symbols
+   :children ast/children
+   :exports  (-> (filter ast/children (fn [node]
+                   (= node/type :def)))
+                 (map (fn [node] node/name)))})
+
+(defn module-name [path]
+  (->symbol (first (split (last path) \.))))

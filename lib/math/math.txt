@@ -1,0 +1,16 @@
+(defn sin [x] (internal js Math.sin x))
+(defn cos [x] (internal js Math.cos x))
+(defn tan [x] (internal js Math.tan x))
+
+(defn arc-sin [x] (internal js Math.asin x))
+(defn arc-cos [x] (internal js Math.acos x))
+(defn arc-tan [x] (internal js Math.atan x))
+
+(defn log2 [x]
+  (internal js Math.log2 x))
+
+(defn constrain [x from to]
+  (cond
+    (< x from) from
+    (> x to)   to
+    :else      x))

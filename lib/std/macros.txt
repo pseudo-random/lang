@@ -1,0 +1,179 @@
+; MIT License
+;
+; Copyright (c) 2018 pseudo-random <josh.leh.2018@gmail.com>
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+(defmacro fn (fn* [expr]
+  (prepend (rest expr)
+           :fn*)))
+
+(defmacro def (fn* [expr]
+  (prepend (rest expr)
+           :def*)))
+
+(defmacro defn (fn [expr]
+  [:def (second expr) (prepend (rest (rest expr)) :fn)]))
+
+(defmacro when (fn [expr]
+  [:if (second expr)
+     (prepend (rest (rest expr))
+              :do)
+     nil]))
+
+(defmacro unless (fn [expr]
+  [:if (second expr)
+    nil
+    (prepend (rest (rest expr))
+             :do)]))
+
+(defmacro cond (fn [expr]
+  (if (empty? (third-rest expr))
+    [:if (second expr)
+      (third expr)
+      nil]
+    [:if (second expr)
+      (third expr)
+      (prepend (rest (rest (rest expr))) :cond)])))
+
+(defmacro -> (fn [expr]
+  (def* params (rest expr))
+  (if (empty? (rest params))
+    (first params)
+    (prepend (prepend (rest (last params))
+                      (init expr))
+             (first (last params))))))
+
+(defmacro or (fn [expr]
+  (if (empty? (rest (rest expr)))
+    (second expr)
+    [:do [:def* (gensym :temp) (second expr)]
+         [:if (gensym :temp)
+           (gensym :temp)
+           (prepend (rest (rest expr)) :or)]])))
+
+(defmacro and (fn [expr]
+  (if (empty? (rest (rest expr)))
+    (second expr)
+    [:do [:def* (gensym :temp) (second expr)]
+         [:if (gensym :temp)
+           (prepend (rest (rest expr)) :and)
+           (gensym :temp)]])))
+
+(defmacro deftype (fn [expr]
+  :(def $(->symbol (format (->str (second expr)) "*"))
+        $(prepend (rest expr) :type))))
+
+(defmacro let (fn [expr]
+  (defn bind [bindings]
+    (if (empty? bindings)
+      []
+      (prepend (bind (second-rest bindings))
+               [:def (second (first bindings)) (second (second bindings))])))
+
+  (prepend (concat (bind (second (second expr)))
+                   (second-rest expr))
+           :do)))
+
+# Loops
+(defmacro loop (fn [expr]
+  (def args (second expr))
+  (def initial-values (third expr))
+
+  (def body (rest (rest expr)))
+  (def func (prepend (prepend body args) :fn*))
+
+  (prepend initial-values func)))
+
+## dotimes
+;(dotimes (x :in [1 2 3 4 5] :when (even? x))
+;  (incr x))
+
+;((fn [<list>]
+;  (def x (first <list>))
+;  (unless (empty? <list>)
+;    (when (even? x)
+;      (incr x))
+;    (recur (rest list))) [1 2 3 4 5])
+
+;[3 5]
+
+# match
+(defmacro case (fn [expr]
+  (def value (second expr))
+  (def pattern (third expr))
+
+  (defn quote? [expr]
+    (and (list? expr)
+         (not-empty? expr)
+         (= (first expr) :quote)))
+
+  (defn match-quoted [pattern- index]
+    (cond
+      (empty? pattern-)
+        []
+      (= (first (first pattern-)) :unquote)
+        (prepend (match-quoted (rest pattern-) (incr index))
+                 :(case (nth $value $index)
+                        $(second (first pattern-))))
+      :else
+        (prepend (match-quoted (rest pattern-) (incr index))
+                 :(case (nth $value $index)
+                        $[:quote (first pattern-)]))))
+
+  (cond
+    (quote? pattern)
+      (if (list? (second pattern))
+        (concat :(and (list? $(second expr)))
+                      (match-quoted (second pattern) 0))
+        :(= $(second expr) $(third expr)))
+    (list? pattern)
+      (concat [(first pattern) (second expr)] (second-rest pattern))
+    (= pattern :_)
+      :(true? $(second expr))
+    :else
+      :(= $(second expr) $(third expr)))))
+
+(defmacro if-case (fn [expr]
+  :(if (case $(second expr) $(third expr))
+    $(fourth expr)
+    $(fifth expr))))
+
+(defmacro match (fn [expr]
+  (if (empty? (fourth-rest expr))
+    [:if-case (second expr) (third expr)
+      (fourth expr)
+      nil]
+    [:if-case (second expr) (third expr)
+      (fourth expr)
+      (concat [:match (second expr)] (fourth-rest expr))])))
+
+# modules
+(defmacro module (fn [expr]
+  nil))
+
+(defmacro defmodule (fn [expr]
+  :(def* $(second expr)
+         $(prepend (second-rest expr) :module))))
+
+(defmacro curry (fn [expr]
+  :(fn [$(gensym :arg)]
+     $(concat [(second expr) (gensym :arg)]
+              (second-rest expr)))))

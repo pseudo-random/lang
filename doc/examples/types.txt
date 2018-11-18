@@ -1,0 +1,5 @@
+(deftype fraction numerator denominator)
+
+(print (nth (fraction* 3 4) :denominator))
+(print (nth (fraction* 1 2) :numerator))
+(print (nth (fraction* 1 2) :abc))

@@ -1,0 +1,32 @@
+; Implementation of a linked list using closures
+
+; Data Structure
+(defn cons [x y]
+  (fn [op]
+    (if (= op :car)
+      x
+      y)))
+
+; Functions
+(defn car [c] (c :car))
+(defn cdr [c] (c :cdr))
+
+(defn iter [list func]
+  (func (car list))
+  (if (= (cdr list) -1)
+    nil
+    (iter (cdr list) func)))
+
+; Pretty Print
+(defn ppr [x]
+  (print x))
+
+(defn ppr-list [list]
+  (iter list print))
+
+(def my-list (cons 0 (cons 1 (cons 2 -1))))
+(ppr-list my-list)
+(terpri)
+
+(ppr-list (cons 10 my-list))
+(terpri)

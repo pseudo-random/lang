@@ -1,0 +1,50 @@
+; MIT License
+;
+; Copyright (c) 2018 pseudo-random <josh.leh.2018@gmail.com>
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+(internal js-require fs)
+
+; TODO: Use "/" or "\\" depending on the OS
+(defn path-to-str [path]
+  (if (list? path) ; TODO: Lists and vectors are paths use seq?
+    (interpose path "/")
+    path))
+
+(defn read! [path encoding]
+  (internal js fs.readFileSync (path-to-str path) encoding))
+
+(defn write! [path data encoding]
+  (internal js fs.writeFileSync (path-to-str path) data encoding))
+
+(defn exists? [path]
+  (internal js fs.existsSync (path-to-str path)))
+
+(defn file? [path]
+  (internal js-method (internal js fs.statSync (path-to-str path)) isFile))
+
+(defn make-directory! [path]
+  (internal js fs.mkdirSync (path-to-str path)))
+
+(defn list! [path]
+  (internal js fs.readdirSync (path-to-str path)))
+
+(defn directory? [path]
+  (internal js-method (internal js fs.statSync (path-to-str path)) isDirectory))

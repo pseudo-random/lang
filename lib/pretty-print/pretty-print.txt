@@ -1,0 +1,107 @@
+; MIT License
+;
+; Copyright (c) 2018 pseudo-random <josh.leh.2018@gmail.com>
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+(defn repeat-str [str times]
+  (defn repeat-str' [yet left]
+    (if (= left 0)
+      yet
+      (recur (format yet str)
+             (decr left))))
+  (repeat-str' "" times))
+
+(defn replace-str [str a b]
+  (internal js-method (internal js-method str split a) join b))
+
+(defn call? [expr x]
+  (and (list? expr)
+       (not-empty? expr)
+       (= (first expr) x)))
+
+(defn list-literal? [list]
+  (and (list? list)
+       (call? list :quote)
+       (every? (second list) (curry call? :unquote))))
+
+; Tokenizer
+(defn tokenize-list-fold [x]
+  (let [tokens (map x tokenize)
+        callee (first tokens)
+        params (-> (init (rest tokens))
+                   (map (fn [x] [[x :down]]))
+                   (flat-map identity))]
+    (concat (concat (concat callee [[" " :right]]) params) (last tokens))))
+
+(defn tokenize-list [x]
+  (-> (map x tokenize)
+      (join [" " :right])))
+
+(defn tokenize [x]
+  (cond
+    (list-literal? x) (-> (second x)
+                          (map second)
+                          (tokenize-list)
+                          (append  ["]" :right])
+                          (prepend ["[" :right]))
+
+    (list? x) (-> (if (>= (len x) 4)
+                    (tokenize-list-fold x)
+                    (tokenize-list x))
+                  (append  [")" :right])
+                  (prepend ["(" :right]))
+
+    :else     [[(prn x) :right]]))
+
+; Printer
+(defn move-indent [indent dir str]
+  (if (= dir :right)
+    (+ indent (len str))
+    indent))
+
+(defn print-token [yet indent dir str]
+  (if (= dir :down)
+    (format yet str "\n" (repeat-str " " indent))
+    (format yet str)))
+
+(defn print-to-string [tokens indent yet]
+  (if (empty? tokens)
+    yet
+    (let [token (first tokens)
+          dir (second token)
+          str (first token)]
+      (if (list? str)
+        (recur (rest tokens)
+               (move-indent indent dir str)
+               (print-token yet indent dir (print-to-string str indent "")))
+        (recur (rest tokens)
+               (move-indent indent dir str)
+               (print-token yet indent dir str))))))
+
+(defn pretty-print [x]
+  (-> (tokenize x)
+      (print-to-string 0 "")))
+
+;(print (pretty-print (quote (a b c (a b c d) (a b c d)))))
+;(print (pretty-print (quote (a (a b c d) (a b c d)))))
+
+;(print (pretty-print (quote (defn pretty-print [x]
+;  (-> (tokenize x)
+;      (print-to-string 0 ""))))))

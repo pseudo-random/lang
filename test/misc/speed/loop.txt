@@ -1,0 +1,6 @@
+#(dotimes [it 10000000])
+
+((fn [it to]
+  (unless (= it to)
+    #(print it)
+    (recur (incr it) to))) 0 10000000)

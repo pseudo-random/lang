@@ -1,0 +1,124 @@
+(print (^ 2 8))
+(print 0xff)
+(print (-> (range 0 1000)
+           (map incr)))
+
+(defn fact [x yet]
+  (if (> x 0)
+    (recur (decr x) (* x yet))
+    yet))
+
+(print (fact 4 1))
+(print (-> (range 1 11)
+           (reduce +)))
+
+(print "Hello, World!")
+
+# Linked List
+# Data Structure
+(defn cons [x y]
+  (fn [op]
+    (if (= op :car)
+      x
+      y)))
+
+# Functions
+(defn car [c] (c :car))
+(defn cdr [c] (c :cdr))
+
+(defn iter [list func]
+  (func (car list))
+  (if (= (cdr list) -1)
+    nil
+    (iter (cdr list) func)))
+
+# Pretty Print
+(defn ppr [x]
+  (print x))
+
+(defn ppr-list [list]
+  (iter list print))
+
+(def my-list (cons 0 (cons 1 (cons 2 -1))))
+(ppr-list my-list)
+(terpri)
+
+(ppr-list (cons 10 my-list))
+(terpri)
+
+(defmacro loop (fn* [expr]
+  (def* args (second expr))
+  (def* initial-values (third expr))
+
+  (def* body (rest (rest (rest expr))))
+  (def* func (prepend (prepend body args) :fn*))
+
+  (prepend initial-values func)))
+
+# Fibonacci
+(defn fib [n]
+  (loop (a b x) (0 1 0)
+    (when (< x n)
+      (recur b (+ a b) (incr x)))
+    a))
+
+(print "Fibonacci Sequence:")
+(-> (range 0 30)
+    (map fib)
+    (each-it (fn [it fibonacci]
+      (write it)
+      (write \\s)
+      (write fibonacci)
+      (terpri))))
+
+# Fizz Buzz
+
+(defn fizz? [x] (div? x 3))
+(defn buzz? [x] (div? x 5))
+(defn fizzbuzz? [x] (and (fizz? x) (buzz? x)))
+
+(defn fizzbuzz [x]
+  (cond
+    (fizzbuzz? x) "Fizzbuzz"
+    (fizz? x) "Fizz"
+    (buzz? x) "Buzz"
+    :else  x))
+
+(-> (range 1 100)
+    (map fizzbuzz)
+    (each print))
+
+(print :((1 2) (3 4)))
+
+(def my-map {:item "Hello, World!"})
+(print (format "my-map/item: " my-map/item))
+
+(print (do 1 2 3))
+(print (let [a 10 b 20] (+ a b)))
+
+;(match 4
+;  1 (print "one")
+;  2 (print "two")
+;  3 (print "three")
+;  _ (print "I do not know this number"))
+;
+;
+;(match [1 2 :sym]
+;  [1 2 _]    (print [1 2 3])
+;  :sym       (print "symbol: sym")
+;  1          (print "int: 1")
+;  (int? _)   (print "int")
+;  (float? _) (print "float")
+;  (str? _)   (print "string")
+;  _          (print "unknown type"))
+;
+;(match :(1 0)
+;  :($:1 $_ $_)     (print :(1 0 0))
+;  _                (print "does not match"))
+
+; Vector
+(print (format "A vector: " [| 1 2 3 |]))
+(print (format "A matrix: " [| 1 2 3 | 4 5 6 | 7 8 9 |]))
+
+; Set
+(print (format "Set: " (set* 1 2 3)))

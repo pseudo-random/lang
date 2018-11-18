@@ -1,0 +1,4 @@
+(import other-file)
+
+(defn add [a b]
+  (+ a b))

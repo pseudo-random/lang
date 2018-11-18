@@ -1,0 +1,350 @@
+; MIT License
+;
+; Copyright (c) 2018 pseudo-random <josh.leh.2018@gmail.com>
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+(import test)
+
+(deftype parser-result expr rest-str)
+
+;(defn next? [str token]
+;  (cond
+;    (empty? token) str
+;    (empty? str)   nil
+;    :else          (if (= (first token) (first str))
+;                     (recur (rest str) (rest token))
+;                     nil)))
+
+(defn next? [str token]
+  (if (= (internal js-method str substr 0 (len token)) token)
+    (internal js-method str substr (len token))
+    nil))
+
+(defn symbol-character? [chr]
+  (or (letter? chr)
+      (digit? chr)
+      (in? chr "?^°+-*/%!&=><,.~'_")))
+
+(defn whitespace? [chr]
+  (or (= chr \\s)
+      (= chr \\n)
+      (= chr \\t)
+      (= chr \\r)))
+
+(defn remove-whitespace [str]
+  (cond
+    (empty? str)              str
+    (whitespace? (first str)) (recur (rest str))
+    (or (= (first str) \;)
+        (= (first str) \#))   (recur (drop-while str (fn [x] (!= x \\n))))
+    :else                     str))
+
+(defn unescape [chr]
+  (cond
+    (= chr \n)  \\n
+    (= chr \r)  \\r
+    (= chr \t)  \\t
+    (= chr \s)  \\s
+    (= chr \\\) \\\
+    (= chr \")  \"
+    :else       \\s))
+
+; TODO: OPTIMIZE
+(defn ->digit [chr]
+  (cond
+    (= chr \0) 0
+    (= chr \1) 1
+    (= chr \2) 2
+    (= chr \3) 3
+    (= chr \4) 4
+    (= chr \5) 5
+    (= chr \6) 6
+    (= chr \7) 7
+    (= chr \8) 8
+    (= chr \9) 9
+    (= chr \a) 10 (= chr \A) 10
+    (= chr \b) 11 (= chr \B) 11
+    (= chr \c) 12 (= chr \C) 12
+    (= chr \d) 13 (= chr \D) 13
+    (= chr \e) 14 (= chr \E) 14
+    (= chr \f) 15 (= chr \F) 15
+    :else      nil))
+
+(defn parse-symbol [str yet]
+  (cond
+    (and (not-empty? str)
+         (symbol-character? (first str)))
+      (recur (rest str) (append yet (first str)))
+    :else
+      (if (= yet "")
+        nil
+        (parser-result* (as-symbol yet) str))))
+
+(defn path? [sym]
+  (and (internal js-method sym includes "/")
+       (not (internal js-method sym startsWith "/"))))
+
+(defn parse-path [sym]
+  (defn parse-path' [path yet]
+    (if (empty? path)
+      yet
+      (recur (rest path)
+             [:nth yet [:quote (->symbol (first path))]])))
+  (let [parts (internal js-method sym split "/")]
+    (parse-path' (rest parts) (->symbol (first parts)))))
+
+(defn as-symbol [sym]
+  (cond
+    (= sym "true")   true
+    (= sym "false")  false
+    (= sym "nil")    nil
+    (path? sym)      (parse-path sym)
+    :else            (let [num (parse-number sym)] ; TODO
+                       (or num (->symbol sym)))))
+
+(defn parse-number [sym]
+  (cond
+    (next? sym "+") (parse-number-positive (rest sym))
+    (next? sym "-") (let [num (parse-number-positive (rest sym))]
+                      (if num (neg num) nil))
+    :else           (parse-number-positive sym)))
+
+(defn parse-number-positive [sym]
+  (cond
+    (empty? sym)     nil
+    (next? sym "0x") (parse-number-base (second-rest sym) 0 16)
+    (next? sym "B")  (if (empty? (rest sym))
+                       nil
+                       (parse-number-base (rest sym) 0 2))
+    :else            (parse-number-base sym 0 10)))
+
+(defn parse-number-base [sym yet base]
+  ;(print (format "parse-number-base: " sym " " yet " " base))
+  (cond
+    (empty? sym)
+      yet
+    (and (not (nil? (->digit (first sym))))
+         (< (->digit (first sym)) base))
+      (recur (rest sym)
+             (+ (* yet base) (->digit (first sym)))
+             base)
+    (next? sym "_")
+      (recur (rest sym) yet base)
+    (next? sym ".")
+      (+ yet (parse-number-floating (rest sym) 0 0 base))
+    :else
+      nil))
+
+(defn parse-number-floating [sym yet digits base]
+  (cond
+    (empty? sym)
+      (/ yet (^ base digits))
+    (and (not (nil? (->digit (first sym))))
+         (<= (->digit (first sym)) base))
+      (recur (rest sym)
+             (+ (* yet base) (->digit (first sym)))
+             (incr digits) base)
+    (next? sym "_")
+      (recur (rest sym) yet digits base)
+    :else
+      nil))
+
+(defn parse-string [str]
+  (defn parse-string' [str yet]
+    (cond
+      (empty? str)
+        nil
+      (= (first str) \\\)
+        (recur (rest (rest str)) (append yet (unescape (second str))))
+      (= (first str) \")
+        (parser-result* yet str)
+      :else
+        (recur (rest str) (append yet (first str)))))
+
+  (when (next? str "\"")
+    (def parsed (parse-string' (rest str) ""))
+    (if parsed
+      (parser-result* parsed/expr (rest parsed/rest-str))
+      nil)))
+
+(defn parse-char [str]
+  (when (next? str "\\")
+    (if (next? str "\\\\")
+      (parser-result* (unescape (third str)) (rest (rest (rest str))))
+      (parser-result* (second str) (rest (rest str))))))
+
+(defn parse-values [str yet]
+  (def parsed-value (parse-value (remove-whitespace str)))
+  (if parsed-value
+    (recur parsed-value/rest-str (append yet parsed-value/expr))
+    (parser-result* yet (remove-whitespace str))))
+
+(defn parse-s-expr [str]
+  (when (next? str "(")
+    (def res (parse-values (rest str) []))
+    (when (next? res/rest-str ")")
+      (parser-result* res/expr (rest res/rest-str)))))
+
+(defn parse-list-literal [str]
+  (when (next? str "[")
+    (def res (parse-values (rest str) []))
+    (when (next? res/rest-str "]")
+      (parser-result* [:quote (map res/expr (fn [x] [:unquote x]))]
+                      (rest res/rest-str)))))
+
+(defn parse-matrix [str rows]
+  (def res (parse-values str (vector*)))
+  (cond
+    (next? res/rest-str "|]")
+      (parser-result* (append rows res/expr)
+                      (next? res/rest-str "|]"))
+    (next? res/rest-str "|")
+      (recur (rest res/rest-str)
+             (append rows res/expr))
+    :else
+      nil))
+
+(defn parse-vector [str]
+  (when (next? str "[|")
+    (def res (parse-values (next? str "[|") (vector*)))
+    (cond
+      (next? res/rest-str "|]")
+        (parser-result* res/expr
+                        (next? res/rest-str "|]"))
+      (next? res/rest-str "|")
+        (parse-matrix (rest res/rest-str)
+                      (vector* res/expr))
+      :else
+        nil)))
+
+(defn parse-map [str]
+  (when (next? str "{")
+    (def res (parse-values (rest str) []))
+    (when (next? res/rest-str "}")
+      (parser-result* (as-map res/expr) (rest res/rest-str)))))
+
+(defn as-map [list]
+  (fold-2 list {} (fn [key val acc]
+    (insert acc key val))))
+
+(defn parse-quoted [str]
+  (when (next? str ":")
+    (def parsed (parse-value (rest str)))
+    (when parsed
+      (parser-result* [:quote parsed/expr] parsed/rest-str))))
+
+(defn parse-unquote [str]
+  (when (next? str "$")
+    (def parsed (parse-value (rest str)))
+    (when parsed
+      (parser-result* [:unquote parsed/expr] parsed/rest-str))))
+
+(defn parse-value [str]
+  (or (parse-string str)
+      (parse-symbol str "")
+      (parse-s-expr str)
+      (parse-vector str)
+      (parse-list-literal str)
+      (parse-map str)
+      (parse-char str)
+      (parse-quoted str)
+      (parse-unquote str)))
+
+(defn parse [str]
+  ;(internal js console.time "parse")
+  (def res (nth (parse-values str []) :expr))
+  ;(internal js console.timeEnd "parse")
+  res)
+
+(test/test "parse/number/int"
+  (parse "0")    = [0]
+  (parse "-0")   = [0]
+  (parse "10")   = [10]
+  (parse "-1")   = [-1]
+  (parse "+1")   = [1]
+  (parse "B11")  = [3]
+  (parse "-B11") = [-3]
+  (parse "+1")   = [1]
+  (parse "0xF")  = [15]
+  (parse "0xf")  = [15]
+  (parse "0x10") = [16]
+  (parse "-0xf") = [-15])
+
+(test/test "parse/number/float"
+  (parse "0.1")  = [0.1]
+  (parse "-0.1") = [-0.1]
+  (parse "3.14") = [3.14]
+  (parse "-3.1") = [-3.1]
+  (parse "+3.1") = [3.1]
+  (parse "B1.1") = [1.5])
+
+(test/test "parse/symbol"
+  (parse "hello")  = [:hello]
+  (parse "world")  = [:world]
+  (parse "->")     = [:->]
+  (parse "+")      = [:+]
+  (parse "x1")     = [:x1])
+
+(test/test "parse/s-expr"
+  (parse "(1 2 3)") = [[1 2 3]]
+  (parse "(1 2)")   = [[1 2]]
+  (parse "(1)")     = [[1]]
+  (parse "()")      = [[]]
+  (parse "(hello)") = [[:hello]])
+
+(test/test "parse/list-literal"
+  (parse "[1 2 3]") = [[:quote [[:unquote 1] [:unquote 2] [:unquote 3]]]]
+  (parse "[]")      = [[:quote []]])
+
+(test/test "parse/quoted"
+  (parse ":()")      = [[:quote []]]
+  (parse ":(1 2 3)") = [[:quote [1 2 3]]])
+
+(test/test "parse/vector"
+  (parse "[| 1 2 3 |]") = [(vector* 1 2 3)]
+  (parse "[| |]")       = [(vector*)]
+  (parse "[| () |]")    = [(vector* [])])
+
+(test/test "parse/matrix"
+  (parse "[| 1 2 3 | 4 5 6 |]") = [(vector* (vector* 1 2 3) (vector* 4 5 6))]
+  (parse "[| | |]")             = [(vector* (vector*) (vector*))]
+  (parse "[| 1 2 3 | 4 5 |]")   = [(vector* (vector* 1 2 3) (vector* 4 5))]
+  (parse "[| | | |]")           = [(vector* (vector*) (vector*) (vector*))]
+  (parse "[| [||] | [||] |]")   = [(vector* (vector* (vector*)) (vector* (vector*)))])
+
+(def expr (parse "
+[| 1 2 3 | 4 5 6 | 7 8 9 |]
+
+(defn remove-whitespace [str]
+        (cond
+          (empty? str)              str
+          (whitespace? (first str)) (recur (rest str))
+          (or (= (first str) \\;)
+              (= (first str) \\#))   (recur (drop-while str (fn [x] (!= x \\\\n))))
+          :else                     str))
+
+          (defn whitespace? [chr]
+            (or (= chr \\\\s)
+                (= chr \\\\n)
+                (= chr \\\\t)
+                (= chr \\\\r)))
+        0xff B1010 0x B -> 1234567890 + - not x \"\\\"\""))
+(print (prn expr))

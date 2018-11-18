@@ -1,0 +1,249 @@
+; MIT License
+;
+; Copyright (c) 2018 pseudo-random <josh.leh.2018@gmail.com>
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+(import io)
+(import utils)
+(def header (format (io/read! "src/compiler/runtime/runtime.js")
+                    "let symbolCount=0; let symbolIDs={}; let symbolNames={};"))
+
+(defn generate-name [name]
+  (format "__" (->str (->int name))))
+
+(defn generate-parameter-list [items]
+  (-> (map items generate)
+      (interpose ",")))
+
+(defn generate-value [type values]
+  (format "new " type "(" (interpose values ",") ")"))
+
+(defn generate-array [keys. values]
+  (generate-value "_Map"
+                  (flat-map (zip (map keys. generate)
+                                 (map values generate))
+                            identity)))
+
+(defn generate-list [items]
+  (if (empty? items)
+    (generate-value "ListEmpty" [])
+    (generate-value "List" [(generate (first items))
+                            (generate-list (rest items))])))
+
+(defn generate-block [body]
+  (format "{\n"
+          (-> (map body generate)
+              (interpose ";\n"))
+          ";\n}"))
+
+(defn generate-function [params body]
+  (format "(("
+          (generate-parameter-list params)
+          ") => "
+          (generate-block body)
+          ")"))
+
+(defn generate-call [callee params]
+  (format (generate callee)
+          "(" (generate-parameter-list params) ")"))
+
+(defn generate-operator [operator params]
+  (format "("
+          (generate (first params))
+          operator
+          (generate (second params))
+          ")"))
+
+(defn generate-internal [node]
+  (defn call [name params]
+    (format name "(" (generate-parameter-list params) ")"))
+
+  (defn method [name args]
+    (def object (first args))
+    (def params (rest args))
+    (format (generate object) "." name "(" (generate-parameter-list params) ")"))
+
+  (cond
+    (= node/name :eq)  (call "eq" node/params)
+    (= node/name :gt)  (generate-operator ">" node/params)
+    (= node/name :lt)  (generate-operator "<" node/params)
+
+    (= node/name :add) (generate-operator "+" node/params)
+    (= node/name :sub) (generate-operator "-" node/params)
+    (= node/name :mul) (generate-operator "*" node/params)
+    (= node/name :div) (generate-operator "/" node/params)
+    (= node/name :mod) (generate-operator "%" node/params)
+
+    (= node/name :bit-and) (generate-operator "&" node/params)
+    (= node/name :bit-or)  (generate-operator "|" node/params)
+    (= node/name :bit-xor) (generate-operator "^" node/params)
+
+    (= node/name :bit-rshift) (generate-operator ">>" node/params)
+    (= node/name :bit-lshift) (generate-operator "<<" node/params)
+
+    (= node/name :floor) (call "Math.floor" node/params)
+    (= node/name :ceil)  (call "Math.ceil" node/params)
+    (= node/name :round) (call "Math.round" node/params)
+    (= node/name :sqrt)  (call "Math.sqrt" node/params)
+
+    (= node/name :first)   (method "first" node/params)
+    (= node/name :rest)    (method "rest" node/params)
+    (= node/name :empty)   (method "isEmpty" node/params)
+    (= node/name :prepend) (method "prepend" node/params)
+    (= node/name :len)     (method "len" node/params)
+
+    (= node/name :insert)   (method "insert" node/params)
+    (= node/name :remove)   (method "remove" node/params)
+    (= node/name :nth)      (method "nth" node/params)
+    (= node/name :index)    (method "nth" node/params)
+    (= node/name :keys)     (method "keys" node/params)
+    (= node/name :empty-of) (method "emptyOf" node/params)
+
+    (= node/name :print) (call "writeln" node/params)
+    (= node/name :write) (call "write" node/params)
+
+    (= node/name :type)  (call "type" node/params)
+
+    (= node/name :to-str)    (call "toStr" node/params)
+    (= node/name :to-int)    (call "toInt" node/params)
+    (= node/name :to-char)   (call "toChar" node/params)
+    (= node/name :to-symbol) (call "toSymbol" node/params)
+    (= node/name :prn)       (call "printToStr" node/params)
+
+    (= node/name :js)         (call (->str (nth (first node/params) :value))
+                                    (rest node/params))
+    (= node/name :js-method)  (method (nth (second node/params) :value)
+                                      (prepend (second-rest node/params)
+                                               (first node/params)))
+    (= node/name :js-require) (let [lib (->str (nth (first node/params) :value))]
+                                (format "let " lib "=require(\""
+                                        (flat-map lib utils/escape-char) "\")"))
+
+    :else            ""))
+
+(defn generate-type-constructor [name keys]
+  (format "constructor (" (generate-parameter-list keys) ") {"
+          "this.type = \"" (flat-map (->str name/value) utils/escape-char) "\";"
+          (-> (map keys (fn [key]
+                (format "this." (generate key) "=" (generate key))))
+              (interpose ";"))
+          "}"))
+
+(defn generate-type-nth [name keys]
+  (format "nth (x) {"
+          (-> (map keys (fn [key]
+                (format "if (x.eq (" (generate (insert key :type :symbol)) ")) { return this." (generate key) " }")))
+              (interpose ";"))
+          "return null; }"))
+
+(defn generate-type-eq [name keys]
+  (format "eq (other) { return this.type === other.type && "
+          (-> (map keys (fn [key]
+                (format "eq(this." (generate key) ", other." (generate key) ")")))
+              (interpose " && "))
+          ";}"))
+
+(defn generate-type [name keys]
+  (format "(function (" (generate-parameter-list keys) ") {return new (class " (generate name) "{"
+          (generate-type-constructor name keys)
+          (generate-type-nth name keys)
+          (generate-type-eq name keys)
+          "})(" (generate-parameter-list keys) ")})"))
+
+(defn generate-import [modules]
+  (let [names        (map modules generate-name)
+        module-names (map names (fn [name] (format "lib" name)))
+        bindings     (-> (zip names module-names)
+                         (map (fn [pair] (format (first pair) " = " (second pair)))) ; TODO: Use match
+                         (interpose ", "))]
+    (format "let " bindings)))
+
+(defn generate-module-exports [exports]
+  (format "{" (-> (map exports (fn [export]
+                    (format (->int export) ": "
+                            (generate-name export))))
+                  (interpose ",")) "}"))
+
+(defn generate-module [name children exports]
+  (print (format name " - " (format "lib" (generate-name name))))
+  (format "" (format "lib" (generate-name name)) "=(function () {"
+          (-> (map children generate)
+              (interpose ";\n"))
+          ";\nreturn new Module (" (generate-module-exports exports) ")"
+          "})()"))
+
+(defn generate-symbol-table [symbols]
+  (-> (keys symbols)
+      (map (fn [symbol]
+        (format "symbolIDs[\"" symbol "\"] = " (->int symbol) ";"
+                "symbolNames[" (->int symbol) "] = \"" symbol "\";")))
+      (interpose ";")
+      (format ";symbolCount=" (len (keys symbols)) ";")))
+
+(defn generate [node]
+  (cond
+    (= node/type :s-expr)    (generate-call (first node/children) (rest node/children))
+
+    (= node/type :root)      (format header
+                               (generate-symbol-table node/symbols)
+                               (generate-block (concat node/std node/modules)))
+    (= node/type :block)     (generate-block node/children)
+    (= node/type :fn)        (generate-function node/params/children node/body)
+    (= node/type :return)    (format "return " (generate node/value))
+
+    (= node/type :def)       (format "let "
+                                     (generate-name node/name)
+                                     "/*" node/name "*/ ="
+                                     (generate node/value))
+
+    (= node/type :assign)    (format (generate node/name) " = " (generate node/value))
+
+    (= node/type :if)        (format "(istrue (" (generate node/cond)
+                                     ") ? "      (generate node/when)
+                                      " : "      (generate node/else) ")")
+
+    (= node/type :if-statement) (format "if (istrue (" (generate node/cond)
+                                        ")) {\n"       (generate node/when) ";"
+                                        "\n} else {\n" (generate node/else) ";\n}")
+
+    (= node/type :while)     (format "while (" (generate node/cond)
+                                     ")"       (generate-block node/children))
+
+    (= node/type :type)      (generate-type node/name node/keys)
+
+    (= node/type :tail-call) "continue;\n"
+    (= node/type :internal)  (generate-internal node)
+    (= node/type :spread)    (format "..." (generate node/child))
+
+    (= node/type :int)       (->str node/value)
+    (= node/type :float)     (->str node/value)
+    (= node/type :name)      (generate-name node/value)
+    (= node/type :char)      (generate-value "Char" [(format "\"" (utils/escape-char node/value) "\"")])
+    (= node/type :symbol)    (generate-value "Symbol" [(->str node/id)])
+    (= node/type :list)      (generate-list node/children)
+    (= node/type :vector)    (format "[" (generate-parameter-list node/children) "]")
+    (= node/type :bool)      (if node/value "true" "false")
+    (= node/type :array)     (generate-array node/keys node/values)
+    (= node/type :str)       (format "\"" (flat-map node/value utils/escape-char) "\"")
+    (= node/type :import)    (generate-import node/modules)
+    (= node/type :module)    (generate-module node/name node/children node/exports)
+
+    (= node/type :nil)  "null"
+    :else               ""))
