@@ -26,7 +26,7 @@ A functional programming language.
 
 ### Installation
 ```bash
-$ git clone <url> <name>
+$ git clone https://github.com/pseudo-random/lang lang
 ```
 
 To compile a file:
