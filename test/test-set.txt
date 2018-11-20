@@ -22,9 +22,6 @@
 
 (import test)
 
-(def x (set* 1 2 3))
-(print (keys x/items))
-
 (test/test "set/set*"
   (set* 1 2 3) =  (set* 1 2 3)
   (set* 3 2 1) =  (set* 1 2 3)
