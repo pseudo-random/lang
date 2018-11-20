@@ -78,3 +78,12 @@
   (split "hello" \\s)       = ["hello"]
   (split "a;b;123" \;)      = ["a" "b" "123"]
   (split "a;" \;)           = ["a" ""])
+
+(test/test "str/starts-with?"
+  (starts-with? "abc" "")    = true
+  (starts-with? "abc" "ab")  = true
+  (starts-with? "abc" "abc") = true
+  (starts-with? "abc" "ABC") = false
+  (starts-with? "abc" "bc")  = false
+  (starts-with? "" "ab")     = false
+  (starts-with? "" "")       = true)

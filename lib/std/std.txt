@@ -436,6 +436,14 @@
         (prepend (split (rest rst) delimiter)
                  word)))))
 
+(defn starts-with? [str start]
+  (cond
+    (empty? start)    true
+    (empty? str)      false
+    (= (first str)
+       (first start)) (recur (rest str) (rest start))
+    :else             false))
+
 # Set
 (defn set* items
   ((type set items) (fold items {} (fn [item acc]
