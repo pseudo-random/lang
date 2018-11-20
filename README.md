@@ -36,7 +36,7 @@ $ python3 src/compiler_py/main.py <filename>
 
 ### Learning
 
-- **Getting Started:** doc/getting-started/getting-started.md
+- **Getting Started:** [doc/getting-started/getting-started.md](https://github.com/pseudo-random/lang/blob/master/doc/getting-started/getting-started.md)
 
 ##### Documentation
 
