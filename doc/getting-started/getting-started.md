@@ -118,7 +118,7 @@
 ### Seqs
 ###### List
 ```clojure
-(def my-list :(1 2 3 4 5))  ; Create a list using quote
+(def my-list (quote (1 2 3 4 5)))  ; Create a list using quote
 (def my-list-2 [1 2 3 4 5]) ; Create a list using brackets
 
 (first my-list) ; => 1
@@ -126,7 +126,7 @@
 (prepend my-list 0) ; => (0 1 2 3 4 5)
 (append my-list 6) ; => (1 2 3 4 5 6)
 (empty? my-list) ; => false
-(empty? :()) ; => true
+(empty? []) ; => true
 
 (second my-list) ; => 2
 (third my-list) ; => 3

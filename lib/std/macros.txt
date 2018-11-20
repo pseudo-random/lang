@@ -165,14 +165,6 @@
       (fourth expr)
       (concat [:match (second expr)] (fourth-rest expr))])))
 
-# modules
-(defmacro module (fn [expr]
-  nil))
-
-(defmacro defmodule (fn [expr]
-  :(def* $(second expr)
-         $(prepend (second-rest expr) :module))))
-
 (defmacro curry (fn [expr]
   :(fn [$(gensym :arg)]
      $(concat [(second expr) (gensym :arg)]

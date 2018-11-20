@@ -68,11 +68,6 @@
 (defn bit-shift-right [a b] (internal bit-rshift a b))
 (defn bit-shift-left [a b] (internal bit-lshift a b))
 
-# Loops
-;(defn repeat-inf [func]
-;  (func)
-;  (recur func))
-
 # Collection
 (defn nth [collection index] (internal index collection index))
 (def !! nth)
@@ -386,22 +381,6 @@
 (defn ->int [x] (internal to-int x))
 (defn ->char [x] (internal to-char x))
 (defn ->symbol [x] (internal to-symbol x))
-
-# Fn Module
-(defmodule f
-  (defn or conds
-    (fn [x]
-      (any? conds
-        (fn [c] (c x)))))
-
-  (defn eq [x]
-    (fn [y] (= x y))))
-
-#
-;(defn pattern conds
-;  (fn [x]
-;    (every? conds
-;      (fn [c] (c x)))))
 
 (defn number? [x] (or (int? x) (float? x)))
 (defn pos? [x] (and (number? x) (> x 0)))
