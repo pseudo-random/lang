@@ -195,7 +195,7 @@
         (format "symbolIDs[\"" symbol "\"] = " (->int symbol) ";"
                 "symbolNames[" (->int symbol) "] = \"" symbol "\";")))
       (interpose ";\n")
-      (format ";symbolCount=" (len (keys symbols)) ";")))
+      (format ";symbolCount=" (incr (max (map (keys symbols) ->int) identity)) ";")))
 
 (defn generate [node]
   (cond
