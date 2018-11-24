@@ -25,18 +25,18 @@
 
 (deftype parser-result expr rest-str)
 
-;(defn next? [str token]
-;  (cond
-;    (empty? token) str
-;    (empty? str)   nil
-;    :else          (if (= (first token) (first str))
-;                     (recur (rest str) (rest token))
-;                     nil)))
-
 (defn next? [str token]
-  (if (= (internal js-method str substr 0 (len token)) token)
-    (internal js-method str substr (len token))
-    nil))
+  (cond
+    (empty? token) str
+    (empty? str)   nil
+    :else          (if (= (first token) (first str))
+                     (recur (rest str) (rest token))
+                     nil)))
+
+;(defn next? [str token]
+;  (if (= (internal js-method str substr 0 (len token)) token)
+;    (internal js-method str substr (len token))
+;    nil))
 
 (defn symbol-character? [chr]
   (or (letter? chr)
@@ -100,7 +100,7 @@
 
 (defn path? [sym]
   (and (internal js-method sym includes "/")
-       (not (internal js-method sym startsWith "/"))))
+       (not (starts-with? sym "/"))))
 
 (defn parse-path [sym]
   (defn parse-path' [path yet]
@@ -322,6 +322,14 @@
   (parse "[| 1 2 3 |]") = [(vector* 1 2 3)]
   (parse "[| |]")       = [(vector*)]
   (parse "[| () |]")    = [(vector* [])])
+
+(test/test "parse/symbol"
+  (parse "hello") = [:hello]
+  (parse "world") = [:world])
+
+(test/test "parse/path"
+  (parse "a/b") = [[:nth :a [:quote :b]]]
+  (parse " a/b") = [[:nth :a [:quote :b]]])
 
 (test/test "parse/matrix"
   (parse "[| 1 2 3 | 4 5 6 |]") = [(vector* (vector* 1 2 3) (vector* 4 5 6))]

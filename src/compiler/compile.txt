@@ -74,4 +74,5 @@
            ;(compile ["src" "compiler" "eval.txt"])
            ;(compile ["src" "compiler" "exec.txt"])
            (compile ["src" "compiler" "compile.txt"])
+           ;(compile ["test" "run-tests.txt"])
            "utf-8")

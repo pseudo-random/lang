@@ -22,6 +22,33 @@
 
 (import test)
 
+
+(test/test "str/first"
+  (first "abc") = \a
+  (first "12")  = \1
+
+  (first (rest "abc")) = \b
+  (first (second-rest "abc")) = \c)
+
+(test/test "str/second"
+  (second "abc") = \b
+  (second "12")  = \2)
+
+(test/test "str/nth"
+  (nth "abc" 2) = \c
+  (nth "12" 1)  = \2
+
+  (nth (rest "12") 0)  = \2)
+
+(test/test "str/rest"
+  (rest "abc") = "bc"
+  (rest "12")  = "2"
+  (rest "1")   = "")
+
+(test/test "str/second-rest"
+  (second-rest "abc") = "c"
+  (second-rest "12")  = "")
+
 (test/test "str/->str"
   (->str 0)   = "0"
   (->str 1)   = "1"

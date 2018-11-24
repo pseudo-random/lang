@@ -51,8 +51,8 @@
         (each-it results (fn [it x]
                            (when (= (first x) false)
                              (printm "  (" it ") Test Failed "
-                                     "Result: " (nth x 1)
-                                     " Expected: " (nth x 2))))))))
+                                     "Result: " (prn (second x))
+                                     " Expected: " (prn (third x)))))))))
 
 (import random)
 

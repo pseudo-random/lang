@@ -32,7 +32,7 @@
   (internal js fs.readFileSync (path-to-str path) encoding))
 
 (defn write! [path data encoding]
-  (internal js fs.writeFileSync (path-to-str path) data encoding))
+  (internal js fs.writeFileSync (path-to-str path) (->str data) encoding))
 
 (defn exists? [path]
   (internal js fs.existsSync (path-to-str path)))

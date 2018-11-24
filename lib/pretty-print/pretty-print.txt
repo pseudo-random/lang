@@ -28,9 +28,6 @@
              (decr left))))
   (repeat-str' "" times))
 
-(defn replace-str [str a b]
-  (internal js-method (internal js-method str split a) join b))
-
 (defn call? [expr x]
   (and (list? expr)
        (not-empty? expr)

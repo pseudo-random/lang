@@ -194,7 +194,7 @@
       (map (fn [symbol]
         (format "symbolIDs[\"" symbol "\"] = " (->int symbol) ";"
                 "symbolNames[" (->int symbol) "] = \"" symbol "\";")))
-      (interpose ";")
+      (interpose ";\n")
       (format ";symbolCount=" (len (keys symbols)) ";")))
 
 (defn generate [node]

@@ -9,6 +9,10 @@ function eq (x, y) {
     } else {
       return (x.eq (y))
     }
+  } else if (typeof x === "object" && typeof y === "string") {
+    return x.eq (y)
+  } else if (typeof x === "string" && typeof y === "object") {
+    return y.eq (x)
   } else {
     return x === y
   }
@@ -490,7 +494,7 @@ String.prototype.first = function () {
 }
 
 String.prototype.rest = function () {
-  return this.substr (1)
+  return new StringIterator (this, 1)
 }
 
 String.prototype.prepend = function (char) {
@@ -581,5 +585,54 @@ class Module {
 
   nth (x) {
     return this.exports[x._id]
+  }
+}
+
+// StringIterator
+
+class StringIterator {
+  constructor (str, index) {
+    this._str = str
+    this._index = index
+  }
+
+  nth (x) {
+    return new Char (this._str.charAt (this._index + x))
+  }
+
+  first () {
+    return new Char (this._str.charAt (this._index))
+  }
+
+  rest () {
+    return new StringIterator (this._str, this._index + 1)
+  }
+
+  len () {
+    return this._str.length - this._index
+  }
+
+  isEmpty () {
+    return this._str.length === this._index
+  }
+
+  prepend (char) {
+    return char._chr + this._str.substr (this._index)
+  }
+
+  eq (other) {
+    return eq (this._str.substr (this._index), other)
+  }
+
+  toString () {
+    return this._str.substr (this._index)
+  }
+
+  printToString () {
+    return "\"" + this._str.substr (this._index) + "\""
+  }
+
+  emptyOf () {
+    return ""
   }
 }
