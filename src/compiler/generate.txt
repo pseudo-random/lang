@@ -136,6 +136,9 @@
                                 (format "let " lib "=require(\""
                                         (flat-map lib utils/escape-char) "\")"))
 
+    (= node/name :js-property) (-> (map node/params (fn [node] (->str node/value)))
+                                   (interpose "."))
+
     :else            ""))
 
 (defn generate-type-constructor [name keys]

@@ -69,10 +69,10 @@
         (generate/generate))))
 
 
-(io/write! "out2.js"
-           ;(compile ["src" "compiler" "parser.txt"])
-           ;(compile ["src" "compiler" "eval.txt"])
-           ;(compile ["src" "compiler" "exec.txt"])
-           (compile ["src" "compiler" "compile.txt"])
-           ;(compile ["test" "run-tests.txt"])
-           "utf-8")
+;(io/write! "out2.js"
+;           ;(compile ["src" "compiler" "parser.txt"])
+;           ;(compile ["src" "compiler" "eval.txt"])
+;           ;(compile ["src" "compiler" "exec.txt"])
+;           (compile ["src" "compiler" "compile.txt"])
+;           ;(compile ["test" "run-tests.txt"])
+;           "utf-8")

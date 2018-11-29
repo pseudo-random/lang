@@ -1,0 +1,1 @@
+(def args (rest (internal js-property process argv)))
