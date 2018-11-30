@@ -24,10 +24,13 @@
 (import io)
 (import compile)
 
-(if (= (len os/args) 2)
-  (io/write! ["out2.js"]
-    (-> os/args
-        (second)
-        (io/->path)
-        (compile/compile)) "utf-8")
-  (print "Usage:\n\t./main.txt <file>"))
+(if (or (= (len os/args) 2)
+        (= (len os/args) 3))
+  (let [path   (-> (second os/args)
+                   (io/->path))
+        output (if (= (len os/args) 3)
+                 (-> (third os/args)
+                     (io/->path))
+                 ["out.js"])]
+    (io/write! output (compile/compile path) "utf-8"))
+  (print "Usage:\n\t./main.txt <file> [<output>]"))
