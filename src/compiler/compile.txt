@@ -47,18 +47,24 @@
         ast     (back-end expr)]
     (module-system/to-module ast :std symbols)))
 
-(defn compile-module [path]
-  (let [expr         (front-end path)
-        dependencies (module-system/collect-dependencies expr path)
-        symbols      (symbol-table/collect-symbols expr)
-        ast          (-> (back-end expr)
-                         (module-system/to-module
-                          (module-system/module-name path)
-                          symbols))]
-    (append (flat-map dependencies compile-module) ast)))
+(defn compile-module [path modules]
+  (if (find modules (fn [module] (= path module/path)))
+    (do (print (format "Already imported: " path))
+        modules)
+    (let [expr         (front-end path)
+          dependencies (module-system/collect-dependencies expr path)
+          symbols      (symbol-table/collect-symbols expr)
+          ast          (-> (back-end expr)
+                           (module-system/to-module
+                            (module-system/module-name path)
+                            symbols
+                            path))]
+      (-> (fold dependencies modules (fn [path modules]
+            (compile-module path modules)))
+          (append ast)))))
 
 (defn compile [path]
-  (let [modules (compile-module path)
+  (let [modules (compile-module path [])
         std     (compile-std ["lib" "std" "std.txt"])]
     (-> {:type    :root
          :std     std/children

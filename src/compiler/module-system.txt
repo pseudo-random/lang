@@ -70,11 +70,12 @@
                                      (abc 123 (import test))
                                      {:a (import test-module)})) []))
 
-(defn to-module [ast name symbols]
+(defn to-module [ast name symbols path]
   {:type     :module
    :name     name
    :symbols  symbols
    :children ast/children
+   :path     path
    :exports  (-> (filter ast/children (fn [node]
                    (= node/type :def)))
                  (map (fn [node] node/name)))})
