@@ -1,0 +1,37 @@
+(import date)
+(import test)
+
+(test/test "date/milli-second"
+  (date/milli-second 100)   = 100
+  (date/milli-second -100)  = -100
+  (date/milli-second -1000) = 0
+  (date/milli-second 1000)  = 0
+  (date/milli-second 1001)  = 1
+  (date/milli-second 4001)  = 1
+  (date/milli-second -4001) = -1)
+
+(test/test "date/second"
+  (date/second 100)   = 0
+  (date/second -100)  = 0
+  (date/second -1000) = -1
+  (date/second 1000)  = 1
+  (date/second 1001)  = 1
+  (date/second 4001)  = 4
+  (date/second -4001) = -4
+  (date/second 60000) = 0
+  (date/second 61000) = 1)
+
+(test/test "date/minute"
+  (date/minute 60000)   = 1
+  (date/minute 120001)  = 2
+  (date/minute -120001) = -2
+  (date/minute 3600000) = 0)
+
+(test/test "date/hour"
+  (date/hour 3600000)   = 1
+  (date/hour -3600000)  = -1
+  (date/hour 3600010)   = 1
+  (date/hour 7200000)   = 2
+  (date/hour -7200000)  = -2
+  (date/hour 86400000)  = 0
+  (date/hour -86400000) = 0)

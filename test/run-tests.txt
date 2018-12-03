@@ -26,3 +26,4 @@
 (import test-str)
 (import test-set)
 (import test-math)
+(import test-date)

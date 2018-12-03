@@ -23,7 +23,7 @@
 (defn now! []
   (internal js Date.now))
 
-(defn date [milli-second second hour month day year
+(defn date [milli-second second hour month day year]
   nil ; TODO
   )
 
