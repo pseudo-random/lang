@@ -113,6 +113,7 @@
 
 (defn empty? [list] (internal empty list))
 (defn not-empty? [list] (not (empty? list)))
+(defn one? [list] (empty? (rest list)))
 
 (defn prepend [list x] (internal prepend list x))
 
@@ -372,6 +373,25 @@
 
 (defn min [list func]
   (reduce list (fn [x y] (if (< (func x) (func y)) x y))))
+
+; Simple Quicksort Algorithm
+(defn sort [list compare]
+  ; TODO: Optimize
+  (cond
+    (empty? list) []
+    (one? list)   list
+    :else         (let [left  (filter (rest list)
+                                      (curry compare (first list)))
+                        right (reject (rest list)
+                                      (curry compare (first list)))]
+                    (concat (sort left compare)
+                            (prepend (sort right compare) (first list))))))
+
+(defn sort-by [list key]
+  (if (empty? list)
+    list
+    (sort list (fn [a b]
+      (< (key a) (key b))))))
 
 # Types
 (defn typeof [x] (internal type x))

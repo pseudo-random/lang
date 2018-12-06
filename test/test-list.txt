@@ -255,3 +255,19 @@
 
   (max [[0 0] [0]] len)  = [0 0]
   (max [[] []] len)      = [])
+
+(test/test "list/sort"
+  (sort [] <)            = []
+  (sort [1 2 3] <)       = [1 2 3]
+  (sort [3 2 1] <)       = [1 2 3]
+  (sort [1 3 2] <)       = [1 2 3]
+  (sort [1 3 2] >)       = [3 2 1]
+  (sort (repeat 1 10) >) = (repeat 1 10)
+  (sort (range 0 10) >)  = [9 8 7 6 5 4 3 2 1 0])
+
+(test/test "list/sort-by"
+  (sort-by [1 2 3] identity) = [1 2 3]
+  (sort-by [3 2 1] identity) = [1 2 3]
+  (sort-by [1 3 2] identity) = [1 2 3]
+  (sort-by [] identity)      = []
+  (sort-by [2 -1 0 -4] sign) = [-1 -4 0 2])
