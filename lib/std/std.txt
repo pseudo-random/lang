@@ -393,6 +393,13 @@
     (sort list (fn [a b]
       (< (key a) (key b))))))
 
+(defn transpose [mat]
+  (cond
+    (empty? mat)      []
+    (any? mat empty?) []
+    :else             (prepend (transpose (map mat rest))
+                               (map mat first))))
+
 # Types
 (defn typeof [x] (internal type x))
 (defn int? [x] (= (typeof 0) (typeof x)))
