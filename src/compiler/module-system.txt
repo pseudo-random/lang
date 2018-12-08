@@ -70,15 +70,19 @@
                                      (abc 123 (import test))
                                      {:a (import test-module)})) []))
 
+(defn collect-exports [node]
+  (cond
+    (= node/type :def)    [node/name]
+    (= node/type :import) node/modules
+    :else                 []))
+
 (defn to-module [ast name symbols path]
   {:type     :module
    :name     name
    :symbols  symbols
    :children ast/children
    :path     path
-   :exports  (-> (filter ast/children (fn [node]
-                   (= node/type :def)))
-                 (map (fn [node] node/name)))})
+   :exports  (flat-map ast/children collect-exports)}) ; TODO: Use set
 
 (defn module-name [path]
   (->symbol (first (split (last path) \.))))
