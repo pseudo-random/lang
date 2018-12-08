@@ -28,12 +28,12 @@
 (def call? utils/call?)
 (def special-form? utils/special-form?)
 (def remove-quotes utils/remove-quotes)
+(def quoted utils/quoted)
 
 (deftype func params body closure)
 (defn func? [x] (= (typeof x) (typeof (func* [] [] {}))))
 (deftype builtin func)
 (defn builtin? [x] (= (typeof x) (typeof (builtin* nil))))
-
 
 (defn create-closure [value scope]
   (cond
@@ -47,17 +47,9 @@
       value))
 
 
-(defn eval [expr scope quote-depth]
+(defn eval [expr scope]
   (cond
-    (or (call? expr :quote)
-        (call? expr :unquote)) (eval-quote expr scope quote-depth)
-
-    (and (list? expr)
-         (> quote-depth 0)) (map expr (fn [x] (eval x scope quote-depth)))
-
-    (and (symbol? expr)
-         (> quote-depth 0)) expr
-
+    (quote? expr)        (quoted expr 0 (curry eval scope))
     (special-form? expr) (eval-special-form expr scope)
     (list? expr)         (eval-sexpr expr scope)
     (symbol? expr)       (if (= (nth scope expr) nil)
@@ -72,16 +64,17 @@
                                     (if (call? expr :def*)
                                       (insert current-scope
                                               (second expr)
-                                              (eval (third expr) current-scope 0))
-                                      (do (eval expr current-scope 0)
+                                              (eval (third expr) current-scope))
+                                      (do (eval expr current-scope)
                                           current-scope))))))
-  (-> (eval (last block) last-scope 0)
+  (-> (eval (last block) last-scope)
       (create-closure last-scope)))
 
 (defn eval-sexpr [expr scope]
-  (def args (map expr (fn [x] (eval x scope 0))))
+  (def args (map expr (curry eval scope)))
   (def callee (first args))
-  (def params (rest args))
+  (def params (-> (rest args)
+                  (map (curry create-closure scope))))
 
   (if (builtin? callee)
     (callee/func params)
@@ -113,33 +106,16 @@
     (= name :def*) (do (print "WARNING: Should not be able to reach code...")
                        nil)
 
-    (= name :if)   (if (eval (first params) scope 0)
-                     (eval (second params) scope 0)
-                     (eval (third params) scope 0))
+    (= name :if)   (if (eval (first params) scope)
+                     (eval (second params) scope)
+                     (eval (third params) scope))
     :else          nil))
 
 
-(defn eval-quote [expr scope quote-depth]
-  (cond
-    (and (= quote-depth 0) (call? expr :quote))
-      (eval (second expr) scope (incr quote-depth))
-
-    (and (= quote-depth 1) (call? expr :unquote))
-      (eval (second expr) scope (decr quote-depth))
-
-    (and (> quote-depth 0) (call? expr :quote))
-      (map expr (fn [x] (eval x scope (incr quote-depth))))
-
-    (and (> quote-depth 1) (call? expr :unquote))
-      (map expr (fn [x] (eval x scope (decr quote-depth))))
-
-    :else nil))
-
-
-(eval (quote (do (def* second (fn* [x] (first (rest x))))
+(eval (quote (do (print "Hello World!")
+                 (def* second (fn* [x] (first (rest x))))
                  (def* terpri (fn* [] (write \\n)))
 
-                 (print "Hello World!")
                  (terpri)
 
                  ;(def* double-plus-1 (fn* [x]
@@ -169,11 +145,6 @@
                  (print (quote (quote ((unquote 1) 2 3))))
                  (terpri)
 
-                 (print (let* [x 10
-                               y 20]
-                          (print x)
-                          (print y)
-                          (+ x y)))
                  (print x)
                  ;(print 10)
                  (terpri)
@@ -184,6 +155,16 @@
 
                  (if (= 10 10) (print 1) (print 0))
                  (if (= 10 20) (print 1) (print 0))
+                 (terpri)
+
+                 (def* c (fn* [func]
+                   (def* x 1)
+                   (func)))
+
+                 (def* a (fn* [x]
+                   (def* b (fn* [] (print x)))
+                   (c b)))
+                 (a 0)
                  (terpri)
 
                  (def* countdown (fn* [x]
@@ -220,5 +201,4 @@
        :*     (builtin* (fn [args] (reduce args *)))
        :=     (builtin* (fn [args] (def first-arg (first args)) (every? args (fn [x] (= x first-arg)))))
        :first (builtin* (fn [args] (first (first args))))
-       :rest  (builtin* (fn [args] (rest (first args))))}
-    0)
+       :rest  (builtin* (fn [args] (rest (first args))))})
