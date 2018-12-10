@@ -81,6 +81,8 @@
     (format (generate object) "." name "(" (generate-parameter-list params) ")"))
 
   (cond
+    (= node/name :apply) (call "apply" node/params)
+
     (= node/name :eq)  (call "eq" node/params)
     (= node/name :gt)  (generate-operator ">" node/params)
     (= node/name :lt)  (generate-operator "<" node/params)

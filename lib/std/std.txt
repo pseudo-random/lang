@@ -21,6 +21,7 @@
 ; SOFTWARE.
 
 # Operators
+(defn apply [func args] (internal apply func args))
 (defn not [x] (if x false true))
 (defn = [a b] (internal eq a b))
 (defn < [a b] (internal lt a b))
@@ -494,8 +495,8 @@
 (defn terpri []
   (write \\n))
 
-(defn print [text]
-  (internal print text))
+(defn print args
+  (internal print (apply format args)))
 
 (defn input [text]
   (write text)

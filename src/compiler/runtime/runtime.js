@@ -99,6 +99,10 @@ function toSymbol (x) {
   return null
 }
 
+function apply (func, args) {
+  return func (...(args.toVector ()))
+}
+
 // I/O
 let buffer = ""
 
@@ -268,6 +272,10 @@ class ListEmpty {
   len () {
     return 0
   }
+
+  toVector () {
+    return []
+  }
 }
 
 class List {
@@ -351,6 +359,18 @@ class List {
 
   emptyOf () {
     return new ListEmpty ()
+  }
+
+  toVector () {
+    let vector = []
+    let cur = this
+
+    while (!cur.isEmpty ()) {
+      vector.push (cur._first)
+      cur = cur._rest
+    }
+
+    return vector
   }
 }
 
@@ -575,6 +595,10 @@ Array.prototype.toString = function () {
 
 Array.prototype.printToString = function () {
   return "[| " + this.map (x => printToStr (x)).join (" ") + " |]"
+}
+
+Array.prototype.toVector = function () {
+  return this
 }
 
 // Module

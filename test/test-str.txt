@@ -87,10 +87,13 @@
   (format "Hello, " "World" "!")    = "Hello, World!"
   (format "abc" "def" "ghi" "jkl")  = "abcdefghijkl"
 
-  (format "PI: " 3.14)           = "PI: 3.14"
+  (format "PI: " 3.14)          = "PI: 3.14"
   (format "(+ 1 2) = " (+ 1 2)) = "(+ 1 2) = 3"
 
-  (format "List: " (quote (1 2 3))) = "List: (1 2 3)")
+  (format "List: " (quote (1 2 3)))   = "List: (1 2 3)"
+  (apply format ["Hello, " "world!"]) = "Hello, world!"
+  (apply format [1 2 3])              = "123"
+  (apply format (repeat 0 10))        = "0000000000")
 
 (test/test "str/prn"
   (prn "Hello") = "\"Hello\""

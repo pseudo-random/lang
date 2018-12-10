@@ -1,0 +1,5 @@
+(print "Hello, world!")
+(print "a" "b" "c")
+(print "List: " [1 2 3])
+(print "Symbol: " :test)
+(print "Number: " 123)

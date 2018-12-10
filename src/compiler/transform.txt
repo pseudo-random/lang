@@ -163,5 +163,5 @@
 
   (test/eq (to-syntax-tree (quote (fn* [x] (recur))))
            {:type :fn
-            :params {:type :list :children [{:type :name :value :x :id 1}]}
+            :params {:type :list :children [{:type :name :value :x :id (->int :x)}]}
             :body [{:type :recur :params []}]}))

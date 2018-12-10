@@ -103,6 +103,7 @@ def generate_internal (node):
         "write": "write",
         "print": "writeln",
         "read": "read",
+        "apply": "apply",
     }
 
     methods = {

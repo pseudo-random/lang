@@ -66,6 +66,11 @@
 (test/test "core/fn/closure"
   (((fn [a] (fn [b] (+ a b))) 2) 3) = 5)
 
+(test/test "core/apply"
+  (apply incr [1]) = 2
+  (apply incr [2]) = 3
+  (apply + [2 3])  = 5)
+
 (terpri)
 (print "The next test should not pass:")
 (test/test "test"
