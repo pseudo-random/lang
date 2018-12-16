@@ -48,7 +48,7 @@
            (= :recur (first expr))
            (= :if (first expr))
            (= :defmacro (first expr))
-           (= :internal (first expr)))))
+           (= :internal (first expr))))) ; TODO: Add type
 
 (defn quote? [expr]
   (call? expr :quote))

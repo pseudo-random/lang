@@ -1,0 +1,269 @@
+; MIT License
+;
+; Copyright (c) 2018 pseudo-random <josh.leh.2018@gmail.com>
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+(import utils)
+
+(defn parameter-count [expr]
+  (let [parameters (utils/remove-quotes (second expr))]
+    (if (symbol? parameters)
+      nil
+      (len parameters))))
+
+(defn infer-internal [expr]
+  (def name (second expr))
+  (cond
+    (= name :add) {:type :union
+                   :types [{:type :int}
+                           {:type :float}
+                           {:type :str}]}
+    (= name :eq) {:type :bool}
+    (= name :gt) {:type :bool}
+    (= name :lt) {:type :bool}
+
+    (= name :to-int)  {:type :int}
+    (= name :to-char) {:type :char}
+    (= name :to-str)  {:type :str}
+
+    (= name :first)   {:type :list}
+    (= name :rest)    {:type :list}
+    (= name :prepend) {:type :list}
+    (= name :keys)    {:type :list}
+    (= name :empty?)  {:type :bool}
+
+    :else        {:type :unknown}))
+
+(defn infer-block [exprs scope]
+  (infer-type (last exprs)
+              (infer-block-scope exprs scope)))
+
+(defn infer-quoted [expr scope depth]
+  (cond
+    (utils/quote? expr)   (recur (second expr) scope (incr depth))
+    (utils/unquote? expr) (recur (second expr) scope (decr depth))
+    (= depth 0)           (infer-type expr scope)
+    (list? expr)          {:type  :list
+                           :len   (len expr)
+                           :items (map expr (curry infer-quoted scope depth))}
+    (symbol? expr)        {:type :symbol :value expr}
+    :else                 (infer-type expr scope)))
+
+(defn infer-type [expr scope]
+  "Basic type inference"
+  (cond
+    (utils/quote? expr)          (infer-quoted expr scope 0)
+    (utils/call? expr :if)       (let [then (infer-type (third expr) scope)
+                                       else (infer-type (fourth expr) scope)]
+                                   (if (= then else) then
+                                     {:type  :union
+                                      :types [then else]}))
+    (utils/call? expr :type)     {:type :fn
+                                  :parameter-count (len (second-rest expr))
+                                  :result {:type    (second expr)
+                                           :keys    (-> (second-rest expr)
+                                                        (add-typed-to-scope {:type :unknown} {}))
+                                           :custom? true}}
+    (utils/call? expr :internal) (infer-internal expr)
+    (utils/call? expr :fn*)      {:type      :fn
+                                  :parameter-count (parameter-count expr)
+                                  :result          (infer-block (second-rest expr) scope)}
+    (utils/call? expr :do)       (infer-block (rest expr) scope)
+    (list? expr)                 (or (nth (infer-type (first expr) scope) :result)
+                                     {:type :unknown})
+    (int? expr)                  {:type :int}
+    (float? expr)                {:type :float}
+    (str? expr)                  {:type :str}
+    (char? expr)                 {:type :char}
+    (nil? expr)                  {:type :nil}
+    (symbol? expr)               (or (nth scope expr) {:type :unknown})
+
+    ; TODO: List, ...
+    :else                        {:type :unknown}))
+
+(defn insert-into-scope [symbol scope]
+  (insert scope symbol {:type :unknown}))
+
+(defn insert-typed-into-scope [symbol type scope]
+  (insert scope symbol type))
+
+(defn add-typed-to-scope [list type scope]
+  (fold list scope (fn [symbol scope]
+    (insert scope symbol type))))
+
+(defn add-to-scope [list scope]
+  (fold list scope (fn [symbol scope]
+    (insert scope symbol {:type :unknown}))))
+
+(defn add-parameters-to-scope [parameters scope]
+  (let [params (utils/remove-quotes parameters)]
+    (if (list? params)
+      (add-to-scope params scope)
+      (insert-into-scope params scope))))
+
+(defn could-be? [type typename]
+  (cond
+    (= type/type :union)   (any? type/types (curry could-be? typename))
+    (= type/type :unknown) type
+    :else                  (if (= type/type typename) type nil)))
+
+(defn format-type [type]
+  (if (= type/type :union)
+    (-> (map type/types format-type)
+        (interpose "/"))
+    (->str type/type)))
+
+(defn check-empty-s-expr [expr scope]
+  (if (empty? expr) [{:msg "Empty s-expr"
+                      :expr expr
+                      :context nil}] nil))
+
+(defn check-is-function? [expr scope]
+  "Checks if the called value is a function."
+  (def type (infer-type (first expr) scope))
+  (if (could-be? type :fn)
+    nil
+    [{:msg (format (prn (first expr)) " is not a function, it is of type "
+                   (format-type type))
+      :expr expr
+      :context nil}]))
+
+(defn check-parameter-count [expr scope]
+  (def type (infer-type (first expr) scope))
+  (def function-type (could-be? type :fn))
+  (def given-parameters (len (rest expr)))
+  (if (or (= function-type/type :unknown)
+          (= function-type/parameter-count nil)
+          (= function-type/parameter-count given-parameters))
+    nil
+    [{:msg (format "Invalid parameter count: Given: " given-parameters
+                   " Expected: " function-type/parameter-count)
+      :expr    expr
+      :context nil}]))
+
+(defn check-call [expr scope]
+  (or (check-empty-s-expr expr scope)
+      (check-is-function? expr scope)
+      (check-parameter-count expr scope)
+      []))
+
+(defn check-parameters [parameters expr scope]
+  (-> (flat-map parameters (curry check scope))
+      (add-context expr)))
+
+(defn add-context [errors expr]
+  (map errors (fn [error]
+    (if (not error/context)
+      (insert error :context expr)
+      error))))
+
+(defn check [expr scope]
+  (cond
+    (utils/call? expr :quote) (utils/collect-quoted expr 0
+                                (curry check scope))
+    (utils/call? expr :do)    (check-block (rest expr) scope)
+    (utils/call? expr :fn*)   (check-block (second-rest expr)
+                                                 (add-parameters-to-scope
+                                                   (second expr)
+                                                   scope))
+
+    (utils/call? expr :type)     []
+    (utils/call? expr :def*)     (-> (check (third expr) scope)
+                                     (add-context scope))
+    (utils/call? expr :internal) (check-parameters (second-rest expr) expr scope)
+    (utils/call? expr :import)   []
+    (utils/call? expr :recur)    (check-parameters (rest expr) expr scope)
+    (utils/call? expr :if)       (check-parameters (rest expr) expr scope)
+
+    (list? expr)              (concat (check-call expr scope)
+                                      (check-parameters expr expr scope))
+    (symbol? expr)            (if (nth scope expr) []
+                                [{:msg (format expr " is undefined.")
+                                  :expr expr
+                                  :context nil}])
+    :else                     []))
+
+(defn infer-block-scope [exprs scope]
+  (cond
+    (empty? exprs)
+      scope
+    (utils/call? (first exprs) :def*)
+      (recur (rest exprs)
+             (insert-typed-into-scope (second (first exprs))
+                                      (infer-type (third (first exprs)) scope) scope))
+    (utils/call? (first exprs) :import)
+      (recur (rest exprs)
+             (add-typed-to-scope (rest (first exprs)) {:type :module} scope))
+    :else
+      (recur (rest exprs) scope)))
+
+(defn check-block [exprs scope]
+  (let [block-scope (infer-block-scope exprs scope)]
+    (check-parameters exprs exprs block-scope)))
+
+(defn format-error [error]
+  (format (prn error/expr) " in " (prn error/context) "\n" error/msg))
+
+(import test)
+(test/test "errors/infer-type"
+  (infer-type (quote (do (def* + (fn* [a b]
+                           (internal add a b)))
+                         (+ 1 2))) {}) = {:type :union
+                                          :types [{:type :int}
+                                                  {:type :float}
+                                                  {:type :str}]}
+  (infer-type (quote (do (def* + (fn* [a b] (internal add a b)))
+                         (def* incr (fn* [a] (+ a 1)))
+                         (incr 2))) {}) = {:type :union
+                                           :types [{:type :int}
+                                                   {:type :float}
+                                                   {:type :str}]})
+
+(test/test "errors/check"
+  (check (quote x) {}) = [{:msg "x is undefined." :expr :x :context nil}]
+  (check (quote 1) {}) = []
+  (check (quote (do (def* + (fn* [a b] (internal add a b)))
+                    (def* y 1)
+                    (+ x x))) {}) = [{:msg "x is undefined." :expr :x :context (quote (+ x x))}
+                                     {:msg "x is undefined." :expr :x :context (quote (+ x x))}]
+  (check (quote (do (def* + (fn* [a b] (internal add a b)))
+                    (def* x 1)
+                    (+ x x))) {}) = []
+  (check (quote (do (def* + (fn* [a b] (internal add a b)))
+                    (+ 1))) {}) =   [{:msg "Invalid parameter count: Given: 1 Expected: 2"
+                                      :expr (quote (+ 1))
+                                      :context (quote ((def* + (fn* [a b] (internal add a b)))
+                                                       (+ 1)))}]
+  (check (quote (do (def* + 1)
+                    (+))) {})     = [{:msg "+ is not a function, it is of type int"
+                                      :expr (quote (+))
+                                      :context (quote ((def* + 1) (+)))}])
+
+(import compile)
+(import io)
+(import os)
+
+(-> (compile/front-end (io/->path (second os/args)))
+    (prepend :do)
+    (check (infer-block-scope (-> (compile/front-end ["lib" "std" "std.txt"])
+                                  (prepend :do)) {}))
+    (map format-error)
+    (interpose "\n\n")
+    (print))

@@ -59,7 +59,7 @@
 
     (= node/type :return)     (-> node
                                   (insert :value (walk node/value func (-> (insert ctx :statement-level false)
-                                                                           (insert ctx :in-return true)))))
+                                                                           (insert :in-return true)))))
     (= node/type :if-statement) (-> node
                                     (insert :cond (walk node/cond func (insert ctx :statement-level false)))
                                     (insert :when (walk node/when func (insert ctx :statement-level true)))
