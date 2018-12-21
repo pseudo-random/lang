@@ -30,11 +30,20 @@
 
 (defn infer-internal [expr]
   (def name (second expr))
+  (def type-number {:type :union
+                    :types [{:type :int}
+                            {:type :float}]})
   (cond
     (= name :add) {:type :union
                    :types [{:type :int}
                            {:type :float}
                            {:type :str}]}
+    (= name :sub) type-number
+    (= name :mul) type-number
+    (= name :div) type-number
+    (= name :mod) type-number
+    (= name :sqrt) type-number
+
     (= name :eq) {:type :bool}
     (= name :gt) {:type :bool}
     (= name :lt) {:type :bool}
@@ -43,11 +52,25 @@
     (= name :to-char) {:type :char}
     (= name :to-str)  {:type :str}
 
-    (= name :first)   {:type :list}
-    (= name :rest)    {:type :list}
-    (= name :prepend) {:type :list}
+    (= name :first)   {:type :union :types [{:type :unknown} {:type :char}]}
+    (= name :rest)    {:type :union :types [{:type :list} {:type :str} {:type :vector}]}
+    (= name :prepend) {:type :union :types [{:type :list} {:type :str} {:type :vector}]}
+    (= name :empty)   {:type :bool}
+    (= name :len)     {:type :int}
+
+    (= name :insert)  {:type :map}
+    (= name :remove)  {:type :map}
     (= name :keys)    {:type :list}
-    (= name :empty?)  {:type :bool}
+
+    (= name :bit-and) {:type :int}
+    (= name :bit-xor) {:type :int}
+    (= name :bit-or)  {:type :int}
+    (= name :bit-lshift)  {:type :int}
+    (= name :bit-rshift)  {:type :int}
+
+    (= name :print) {:type :nil}
+    (= name :write) {:type :nil}
+    (= name :prn)   {:type :str}
 
     :else        {:type :unknown}))
 
@@ -94,6 +117,7 @@
     (char? expr)                 {:type :char}
     (nil? expr)                  {:type :nil}
     (symbol? expr)               (or (nth scope expr) {:type :unknown})
+    (bool? expr)                 {:type :bool}
 
     ; TODO: List, ...
     :else                        {:type :unknown}))
@@ -259,6 +283,11 @@
 (import compile)
 (import io)
 (import os)
+
+(print (infer-block-scope (-> (compile/front-end (io/->path (second os/args)))
+                              (prepend :do))
+   (infer-block-scope (-> (compile/front-end ["lib" "std" "std.txt"])
+                          (prepend :do)) {})))
 
 (-> (compile/front-end (io/->path (second os/args)))
     (prepend :do)
