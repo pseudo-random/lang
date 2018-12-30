@@ -92,6 +92,10 @@
   (fold (keys array) {} (fn [key acc]
     (insert acc key (func key (nth array key))))))
 
+(defn map-keys [array func]
+  (fold (keys array) {} (fn [key acc]
+    (insert acc (func key) (nth array key)))))
+
 ; TODO: When a key is both in a and b, values are different => return nil?
 (defn merge [a b]
   (fold (keys a) b (fn [key acc]
