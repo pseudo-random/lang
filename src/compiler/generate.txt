@@ -140,6 +140,7 @@
 
     (= node/name :js-property) (-> (map node/params (fn [node] (->str node/value)))
                                    (interpose "."))
+    (= node/name :to-js)       (call "toJS" node/params)
 
     :else            ""))
 

@@ -103,6 +103,11 @@ function apply (func, args) {
   return func (...(args.toVector ()))
 }
 
+function toJS (x) {
+  if (x.toJS) { return x.toJS () }
+  return x
+}
+
 // I/O
 let buffer = ""
 
@@ -165,6 +170,10 @@ class Symbol {
   printToString () {
     return symbolNames [this._id]
   }
+
+  toJS () {
+    return this.toString ()
+  }
 }
 
 class Char {
@@ -201,6 +210,10 @@ class Char {
     else if (this._chr === "\t")
       return "\\\\t"
     return "\\" + this._chr
+  }
+
+  toJS () {
+    return this._chr
   }
 }
 
@@ -276,6 +289,8 @@ class ListEmpty {
   toVector () {
     return []
   }
+
+  toJS () { return this.toVector () }
 }
 
 class List {
@@ -372,6 +387,8 @@ class List {
 
     return vector
   }
+
+  toJS () { return this.toVector () }
 }
 
 class _Map {
@@ -502,6 +519,14 @@ class _Map {
 
   emptyOf () {
     return new _Map ()
+  }
+
+  toJS () {
+    let object = {}
+    this._keys.forEach (key => {
+      object[toJS (key)] = toJS (this._map [_hash (key)])
+    })
+    return object
   }
 }
 
