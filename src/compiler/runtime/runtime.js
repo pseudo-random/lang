@@ -87,12 +87,12 @@ function printToStr (x) {
 
 function toSymbol (x) {
   if (typeof x === "string") {
-    if (!symbolIDs.hasOwnProperty (x)) {
-      let id = ++symbolCount
-      symbolIDs[x] = id
-      symbolNames[id] = x
+    if (!symbols.IDs.hasOwnProperty (x)) {
+      let id = ++symbols.count
+      symbols.IDs[x] = id
+      symbols.names[id] = x
     }
-    return new Symbol (symbolIDs[x])
+    return new Symbol (symbols.IDs[x])
   } else if  (typeof x === "number") {
     return new Symbol (x)
   }
@@ -164,11 +164,11 @@ class Symbol {
   }
 
   toString () {
-    return symbolNames [this._id]
+    return symbols.names [this._id]
   }
 
   printToString () {
-    return symbolNames [this._id]
+    return symbols.names [this._id]
   }
 
   toJS () {

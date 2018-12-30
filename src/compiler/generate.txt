@@ -22,8 +22,9 @@
 
 (import io)
 (import utils)
-(def header (format (io/read! "src/compiler/runtime/runtime.js")
-                    "let symbolCount=0; let symbolIDs={}; let symbolNames={};"))
+
+(def runtime (io/read! "src/compiler/runtime/runtime.js" "utf-8"))
+(def header (format runtime "let symbols={count: 0, IDs: {}, names: {}};"))
 
 (defn generate-name [name]
   (format "__" (->str (->int name))))
@@ -198,10 +199,10 @@
 (defn generate-symbol-table [symbols]
   (-> (keys symbols)
       (map (fn [symbol]
-        (format "symbolIDs[\"" symbol "\"] = " (->int symbol) ";"
-                "symbolNames[" (->int symbol) "] = \"" symbol "\";")))
+        (format "symbols.IDs[\"" symbol "\"] = " (->int symbol) ";"
+                "symbols.names[" (->int symbol) "] = \"" symbol "\";")))
       (interpose ";\n")
-      (format ";symbolCount=" (incr (max (map (keys symbols) ->int) identity)) ";")))
+      (format ";symbols.count=" (incr (max (map (keys symbols) ->int) identity)) ";")))
 
 (defn generate [node]
   (cond

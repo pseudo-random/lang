@@ -44,14 +44,12 @@ def generate_name (node):
 
 def generate_symbol_tables ():
     code = ""
-    code += "let symbolCount = " + str (name_count) + ";\n"
-    code += "let symbolIDs = {};\n"
-    code += "let symbolNames = {};\n"
+    code += "let symbols = {count: " + str (name_count) + ", names: {}, IDs: {}};\n"
 
     for name in names:
         ID = names[name]
-        code += "symbolIDs[\"" + name + "\"] = " + str (ID) + ";\n"
-        code += "symbolNames[" + str (ID) + "] = \"" + name + "\";\n"
+        code += "symbols.IDs[\"" + name + "\"] = " + str (ID) + ";\n"
+        code += "symbols.names[" + str (ID) + "] = \"" + name + "\";\n"
 
     return code
 
@@ -104,6 +102,8 @@ def generate_internal (node):
         "print": "writeln",
         "read": "read",
         "apply": "apply",
+
+        "to-js": "toJS",
     }
 
     methods = {

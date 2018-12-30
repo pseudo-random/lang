@@ -27,60 +27,61 @@
 (def call? utils/call?)
 (def walk-quoted utils/walk-quoted)
 
-(def macro-global-scope
-  {:print (builtin* (fn [args] (map args write) (terpri)))
-   :write (builtin* (fn [args] (map args write)))
-   :warn! (builtin* (fn [args] (warn! (first args))))
-   :+     (builtin* (fn [args] (reduce args +)))
-   :*     (builtin* (fn [args] (reduce args *)))
-   :=     (builtin* (fn [args] (def first-arg (first args)) (every? args (fn [x] (= x first-arg)))))
-
-   :incr  (builtin* (fn [args] (incr (first args))))
-   :decr  (builtin* (fn [args] (decr (first args))))
-
-   :first   (builtin* (fn [args] (first (first args))))
-   :second  (builtin* (fn [args] (second (first args))))
-   :third   (builtin* (fn [args] (third (first args))))
-   :fourth  (builtin* (fn [args] (fourth (first args))))
-   :fifth   (builtin* (fn [args] (fifth (first args))))
-
-   :list?   (builtin* (fn [args] (list? (first args))))
-
-   :rest    (builtin* (fn [args] (rest (first args))))
-   :init    (builtin* (fn [args] (init (first args))))
-   :last    (builtin* (fn [args] (last (first args))))
-   :empty?  (builtin* (fn [args] (empty? (first args))))
-   :prepend (builtin* (fn [args] (prepend (first args) (second args))))
-   :append  (builtin* (fn [args] (append (first args) (second args))))
-   :concat  (builtin* (fn [args] (concat (first args) (second args))))
-
-   :not-empty?  (builtin* (fn [args] (not-empty? (first args))))
-   :second-rest (builtin* (fn [args] (second-rest (first args))))
-   :third-rest  (builtin* (fn [args] (third-rest (first args))))
-   :fourth-rest (builtin* (fn [args] (fourth-rest (first args))))
-
-   :format      (builtin* (fn [args] (reduce args format))) ; TODO!
-
-   :->str       (builtin* (fn [args] (->str (first args))))
-   :->symbol    (builtin* (fn [args] (->symbol (first args))))
-   :->int       (builtin* (fn [args] (->int (first args))))})
 
 (defn warn! [macro text]
   (print (format "WARNING: Macro " (->str macro) " " text))
   nil)
 
-(defn create-global-scope [expand-depth]
-  (insert macro-global-scope
-          :gensym (builtin* (fn* [args]
-            (->symbol (concat (->str expand-depth)
-                              (->str (first args))))))))
+(def macro-global-scope
+  {:print print
+   :write write
+   :warn! warn!
+   :+ + :- - :* * :/ /
+   :> > :< < := =
+
+   :incr  incr :decr  decr
+
+   :first first :second second
+   :third third :fourth fourth
+   :fifth fifth
+
+   :list?   list?   :rest    rest
+   :init    init    :last    last   :empty?  empty?
+   :prepend prepend :append  append :concat  concat
+
+   :not-empty?  not-empty? :second-rest second-rest
+   :third-rest  third-rest :fourth-rest fourth-rest
+
+  ; :map map :filter filter :reduce reduce :reject reject
+   ;:fold fold :zip zip :zip-with zip-with
+
+   :format      format
+
+   :->str ->str :->symbol ->symbol :->int ->int})
+
+(defn create-gensym [depth]
+  (fn [sym]
+    (-> (format (->str depth)
+                (->str sym))
+        (->symbol))))
+
+(defn add-gensym-arg [expr]
+  [:quote (-> (second expr)
+              (append [:unquote :gensym]))])
+
+(defn create-macro [expr macros]
+  (let [body       (-> (third-rest expr)
+                       (walk-expand macros 0))
+        parameters (-> (third expr)
+                       (add-gensym-arg))
+        func-expr  (-> (prepend body parameters)
+                       (prepend :fn*))]
+    (eval/eval func-expr macro-global-scope)))
 
 (defn find-macros [prog]
   (fold prog {} (fn [expr macros]
                   (if (call? expr :defmacro)
-                    (insert macros
-                            (second expr)
-                            (eval/eval (walk-expand (third expr) macros 0) {} 0))
+                    (insert macros (second expr) (create-macro expr macros))
                     macros))))
 
 (defn macro? [expr macros]
@@ -95,9 +96,7 @@
     (call? expr :quote)     (walk-quoted expr 0 (curry walk-expand macros expand-depth))
 
     (call? expr :defmacro) nil
-    (macro? expr macros)   (walk-expand (eval/call-fn (nth macros (first expr))
-                                                      [expr]
-                                                      (create-global-scope expand-depth))
+    (macro? expr macros)   (walk-expand ((nth macros (first expr)) expr (create-gensym expand-depth))
                                         macros (incr expand-depth))
 
     (list? expr)           (map expr (curry walk-expand macros expand-depth))
@@ -113,35 +112,35 @@
 
 (import test)
 (test/test "macro-expand/expand-macros"
-  (expand-macros (quote ((defmacro when (fn* [expr]
+  (expand-macros (quote ((defmacro when [expr]
                                           [:if (second expr)
                                              (prepend (rest (rest expr))
                                                       :do)
-                                             nil]))
+                                             nil])
 
                          (when true
                            1
                            2
                            3)))) = [nil [:if true [:do 1 2 3] nil]]
-  (expand-macros (quote ((defmacro -> (fn* [expr]
-                                        (def* params (rest expr))
-                                        (if (empty? (rest params))
-                                          (first params)
-                                          (prepend (prepend (rest (last params))
-                                                            (init expr))
-                                                   (first (last params))))))
+  (expand-macros (quote ((defmacro -> [expr]
+                           (def* params (rest expr))
+                           (if (empty? (rest params))
+                             (first params)
+                             (prepend (prepend (rest (last params))
+                                               (init expr))
+                                      (first (last params)))))
 
                          (a b c ->)
                          (-> a
                              (b)
                              (c))))) = [nil [:a :b :c :->] [:c [:b :a]]]
 
-  (expand-macros (quote ((defmacro a (fn* [expr]
-                           nil))
+  (expand-macros (quote ((defmacro a [expr]
+                           nil)
                          (quote (a 10))))) = [nil [:quote [:a 10]]]
-  (expand-macros (quote ((defmacro a (fn* [expr]
-                           (gensym :a)))
+  (expand-macros (quote ((defmacro a [expr]
+                           (gensym :a))
                          (a)))) = [nil :0a]
-  (expand-macros (quote ((defmacro a (fn* [expr]
-                           [(gensym :a) (second expr)]))
+  (expand-macros (quote ((defmacro a [expr]
+                           [(gensym :a) (second expr)])
                          (a (a nil))))) = [nil [:0a [:1a nil]]])

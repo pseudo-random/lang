@@ -21,67 +21,67 @@
 ; SOFTWARE.
 
 
-(defmacro fn (fn* [expr]
+(defmacro fn [expr]
   (prepend (rest expr)
-           :fn*)))
+           :fn*))
 
-(defmacro def (fn* [expr]
+(defmacro def [expr]
   (prepend (rest expr)
-           :def*)))
+           :def*))
 
-(defmacro defn (fn [expr]
-  [:def (second expr) (prepend (rest (rest expr)) :fn)]))
+(defmacro defn [expr]
+  [:def (second expr) (prepend (rest (rest expr)) :fn)])
 
-(defmacro when (fn [expr]
+(defmacro when [expr]
   [:if (second expr)
      (prepend (rest (rest expr))
               :do)
-     nil]))
+     nil])
 
-(defmacro unless (fn [expr]
+(defmacro unless [expr]
   [:if (second expr)
     nil
     (prepend (rest (rest expr))
-             :do)]))
+             :do)])
 
-(defmacro cond (fn [expr]
+(defmacro cond [expr]
   (if (empty? (third-rest expr))
     [:if (second expr)
       (third expr)
       nil]
     [:if (second expr)
       (third expr)
-      (prepend (rest (rest (rest expr))) :cond)])))
+      (prepend (rest (rest (rest expr))) :cond)]))
 
-(defmacro -> (fn [expr]
+(defmacro -> [expr]
   (def* params (rest expr))
   (if (empty? (rest params))
     (first params)
     (prepend (prepend (rest (last params))
                       (init expr))
-             (first (last params))))))
+             (first (last params)))))
 
-(defmacro or (fn [expr]
+(defmacro or [expr]
   (if (empty? (rest (rest expr)))
     (second expr)
     [:do [:def* (gensym :temp) (second expr)]
          [:if (gensym :temp)
            (gensym :temp)
-           (prepend (rest (rest expr)) :or)]])))
+           (prepend (rest (rest expr)) :or)]]))
 
-(defmacro and (fn [expr]
+(defmacro and [expr]
   (if (empty? (rest (rest expr)))
     (second expr)
     [:do [:def* (gensym :temp) (second expr)]
          [:if (gensym :temp)
            (prepend (rest (rest expr)) :and)
-           (gensym :temp)]])))
+           (gensym :temp)]]))
 
-(defmacro deftype (fn [expr]
+(defmacro deftype [expr]
   :(def $(->symbol (format (->str (second expr)) "*"))
-        $(prepend (rest expr) :type))))
+        $(prepend (rest expr) :type)))
 
-(defmacro let (fn [expr]
+(defmacro let [expr]
   (defn bind [bindings]
     (if (empty? bindings)
       []
@@ -90,17 +90,17 @@
 
   (prepend (concat (bind (second (second expr)))
                    (second-rest expr))
-           :do)))
+           :do))
 
 # Loops
-(defmacro loop (fn [expr]
+(defmacro loop [expr]
   (def args (second expr))
   (def initial-values (third expr))
 
   (def body (rest (rest expr)))
   (def func (prepend (prepend body args) :fn*))
 
-  (prepend initial-values func)))
+  (prepend initial-values func))
 
 ## dotimes
 ;(dotimes (x :in [1 2 3 4 5] :when (even? x))
@@ -116,7 +116,7 @@
 ;[3 5]
 
 # match
-(defmacro case (fn [expr]
+(defmacro case [expr]
   (def value (second expr))
   (def pattern (third expr))
 
@@ -149,23 +149,23 @@
     (= pattern :_)
       :(true? $(second expr))
     :else
-      :(= $(second expr) $(third expr)))))
+      :(= $(second expr) $(third expr))))
 
-(defmacro if-case (fn [expr]
+(defmacro if-case [expr]
   :(if (case $(second expr) $(third expr))
     $(fourth expr)
-    $(fifth expr))))
+    $(fifth expr)))
 
-(defmacro match (fn [expr]
+(defmacro match [expr]
   (if (empty? (fourth-rest expr))
     [:if-case (second expr) (third expr)
       (fourth expr)
       nil]
     [:if-case (second expr) (third expr)
       (fourth expr)
-      (concat [:match (second expr)] (fourth-rest expr))])))
+      (concat [:match (second expr)] (fourth-rest expr))]))
 
-(defmacro curry (fn [expr]
+(defmacro curry [expr]
   :(fn [$(gensym :arg)]
      $(concat [(second expr) (gensym :arg)]
-              (second-rest expr)))))
+              (second-rest expr))))

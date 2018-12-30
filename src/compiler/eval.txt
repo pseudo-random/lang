@@ -20,185 +20,27 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 
+(import transform)
+(import translate)
+(import generate)
 
-; TODO: Use (import utils [...])
-(import utils)
-(def collect-quoted utils/collect-quoted)
-(def quote? utils/quote?)
-(def call? utils/call?)
-(def special-form? utils/special-form?)
-(def remove-quotes utils/remove-quotes)
-(def quoted utils/quoted)
+(internal js-require vm)
+(defn run-javascript! [code std-scope]
+  (let [scope   (insert std-scope :symbols
+                        (internal js-property symbols))
+        context (internal to-js scope)]
+    (internal js vm.createContext context)
+    (internal js vm.runInContext code context)))
 
-(deftype func params body closure)
-(defn func? [x] (= (typeof x) (typeof (func* [] [] {}))))
-(deftype builtin func)
-(defn builtin? [x] (= (typeof x) (typeof (builtin* nil))))
+(defn provide-to-compiled [scope]
+  (map-keys scope generate/generate-name))
 
-(defn create-closure [value scope]
-  (cond
-    (and (func? value) (nil? value/closure))
-      (func* value/params value/body scope)
-
-    (list? value)
-      (map value (fn [x] (create-closure x scope)))
-
-    :else
-      value))
-
+(defn package-with-runtime [code]
+  (format "(() => {" generate/runtime ";return " code "})()"))
 
 (defn eval [expr scope]
-  (cond
-    (quote? expr)        (quoted expr 0 (curry eval scope))
-    (special-form? expr) (eval-special-form expr scope)
-    (list? expr)         (eval-sexpr expr scope)
-    (symbol? expr)       (if (= (nth scope expr) nil)
-                           (do (print (format "Not defined: " expr)) nil)
-                           (nth scope expr))
-
-    :else expr))
-
-(defn eval-block [block scope]
-  (def last-scope (-> (init block)
-                      (fold scope (fn [expr current-scope]
-                                    (if (call? expr :def*)
-                                      (insert current-scope
-                                              (second expr)
-                                              (eval (third expr) current-scope))
-                                      (do (eval expr current-scope)
-                                          current-scope))))))
-  (-> (eval (last block) last-scope)
-      (create-closure last-scope)))
-
-(defn eval-sexpr [expr scope]
-  (def args (map expr (curry eval scope)))
-  (def callee (first args))
-  (def params (-> (rest args)
-                  (map (curry create-closure scope))))
-
-  (if (builtin? callee)
-    (callee/func params)
-    (call-fn callee params scope)))
-
-(defn call-fn [callee params scope]
-  (def param-names callee/params)
-  (def body callee/body)
-  (def fn-closure (or callee/closure scope))
-
-  (def fn-scope (if (list? param-names)
-                  (-> (zip param-names params)
-                      (fold fn-closure (fn [x closure]
-                        (def param-name (first x))
-                        (def param (second x))
-                        (insert closure param-name param))))
-                  (insert fn-closure param-names params)))
-
-  (eval-block body fn-scope))
-
-(defn eval-special-form [expr scope]
-  (def name (first expr))
-  (def params (rest expr))
-  (cond
-    (= name :do)   (eval-block (rest expr) scope)
-    (= name :fn*)  (func* (remove-quotes (first params))
-                          (rest params)
-                          nil)
-    (= name :def*) (do (print "WARNING: Should not be able to reach code...")
-                       nil)
-
-    (= name :if)   (if (eval (first params) scope)
-                     (eval (second params) scope)
-                     (eval (third params) scope))
-    :else          nil))
-
-
-(eval (quote (do (print "Hello World!")
-                 (def* second (fn* [x] (first (rest x))))
-                 (def* terpri (fn* [] (write \\n)))
-
-                 (terpri)
-
-                 ;(def* double-plus-1 (fn* [x]
-                 ;  (def* y (+ x 1))
-                 ;  (+ x y)))
-                 (def* double-plus-1 (fn* [x]
-                   (+ x x 1)))
-
-                 (print (double-plus-1 20)) ; 41
-
-                 (def* curry-thingy (fn* [x]
-                   (fn* [y]
-                     (+ x y))))
-                 (def* plus-1 (curry-thingy 1))
-                 (def* plus-2 (curry-thingy 2))
-                 (def* plus-3 (curry-thingy 3))
-                 (def* plus-4 (curry-thingy 4))
-
-                 (print (plus-1 10)) ; 11
-                 (print (plus-2 10)) ; 12
-                 (print (plus-3 10)) ; 13
-                 (print (plus-4 10)) ; 14
-
-                 (terpri)
-
-                 (print (quote (1 2 3))) ; [1 2 3]
-                 (print (quote (quote ((unquote 1) 2 3))))
-                 (terpri)
-
-                 (print x)
-                 ;(print 10)
-                 (terpri)
-
-                 (print (first (quote (1 2 3))))
-                 (print (rest (quote (1 2 3))))
-                 (terpri)
-
-                 (if (= 10 10) (print 1) (print 0))
-                 (if (= 10 20) (print 1) (print 0))
-                 (terpri)
-
-                 (def* c (fn* [func]
-                   (def* x 1)
-                   (func)))
-
-                 (def* a (fn* [x]
-                   (def* b (fn* [] (print x)))
-                   (c b)))
-                 (a 0)
-                 (terpri)
-
-                 (def* countdown (fn* [x]
-                   (if (= x -1)
-                     nil
-                     (do (print x)
-                         (countdown (+ x -1))))))
-
-                 (countdown 10)
-
-                 (terpri)
-
-                 (def* cons (fn* [a b]
-                   [(fn* [] a) (fn* [] b)]))
-
-                 (def* my-cons (cons 1 2))
-                 (print ((first my-cons)))
-                 (print ((second my-cons)))
-                 (terpri)
-
-                 (print [(+ 1 2) (+ 9 3)])
-                 (terpri)
-
-                 (print "varargs function")
-                 (def* varargs-test (fn* args
-                   (print args)))
-                 (varargs-test 1 2 3)
-
-                 0
-                 ))
-      {:print (builtin* (fn [args] (map args write) (terpri)))
-       :write (builtin* (fn [args] (map args write)))
-       :+     (builtin* (fn [args] (reduce args +)))
-       :*     (builtin* (fn [args] (reduce args *)))
-       :=     (builtin* (fn [args] (def first-arg (first args)) (every? args (fn [x] (= x first-arg)))))
-       :first (builtin* (fn [args] (first (first args))))
-       :rest  (builtin* (fn [args] (rest (first args))))})
+  (-> (transform/to-syntax-tree expr)
+      (translate/translate)
+      (generate/generate)
+      (package-with-runtime)
+      (run-javascript! (provide-to-compiled scope))))
