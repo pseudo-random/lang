@@ -20,38 +20,16 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 
-(import transform)
-(import translate)
-(import generate)
+(def args (rest (internal js-property process argv)))
 
-(internal js-require vm)
+(internal js-require readline)
+(def readline (internal js readline.createInterface (internal to-js {
+  :input (internal js-property process stdin)
+  :output (internal js-property process stdout)
+})))
 
-(defn create-javascript-context! [scope]
-  (let [scope'  (-> (insert scope :symbols
-                            (internal js-property symbols))
-                    (insert :console {:log print}))
-        context (internal to-js scope')]
-    (internal js vm.createContext context)
-    context))
+(defn input! [question callback]
+  (internal js-method readline question question callback))
 
-(defn run-javascript-in! [code context]
-  (internal js vm.runInContext code context))
-
-(defn run-javascript! [code scope]
-  (let [context (create-javascript-context! scope)]
-    (run-javascript-in! code context)))
-
-(defn provide-to-compiled [scope]
-  (map-keys scope generate/generate-name))
-
-(defn package-with-runtime [code]
-  (format "(() => {" generate/runtime ";return " code "})()"))
-
-(defn eval [expr scope]
-  (-> (transform/to-syntax-tree expr)
-      (translate/translate-in {:statement-level false
-                               :in-function false
-                               :in-return false})
-      (generate/generate)
-      (package-with-runtime)
-      (run-javascript! (provide-to-compiled scope))))
+(defn close! []
+  (internal js-method readline close))

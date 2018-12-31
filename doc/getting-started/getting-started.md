@@ -175,8 +175,8 @@ my-list ; => (1 2 3 4)
 
 (first "abc") ; => \a
 (rest "abc") ; => "bc"
-(concat "abc" "def") ; => abcdef
-(interpose ["A" "B" "C"] ", ") ; => A, B, C
+(concat "abc" "def") ; => "abcdef"
+(interpose ["A" "B" "C"] ", ") ; => "A, B, C"
 
 (format "1 + 2 = " (+ 1 2)) ; => "1 + 2 = 3"
 ```

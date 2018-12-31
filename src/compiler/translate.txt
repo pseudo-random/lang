@@ -170,15 +170,18 @@
       (convert-do-expressions-to-functions ctx)
       (flatten-blocks ctx)))
 
-(defn translate [ast]
+(defn translate-in [ast context]
   (-> ast
-      (walk translate-tail-recur (create-context))
-      (walk translate-to-statements (create-context))
+      (walk translate-tail-recur context)
+      (walk translate-to-statements context)
 
-      (walk add-return-statements (create-context))
-      (walk optimize-tail-calls (create-context))
+      (walk add-return-statements context)
+      (walk optimize-tail-calls context)
 
-      (walk convert-varargs-to-spread (create-context))))
+      (walk convert-varargs-to-spread context)))
+
+(defn translate [ast]
+  (translate-in ast (create-context)))
 
 (import test)
 (import transform)

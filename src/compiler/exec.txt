@@ -24,41 +24,40 @@
 (import macro-expand)
 
 (defn exec [prog]
-  (-> prog
-      (macro-expand/expand-macros)
+  (-> (macro-expand/expand-macros prog)
       (prepend :do)
-      (eval/eval macro-expand/macro-global-scope 0)))
+      (eval/eval macro-expand/macro-global-scope)))
 
 (terpri)
 (exec (quote
-  ((defmacro fn (fn* [expr]
+ ((defmacro fn [expr]
     (prepend (rest expr)
-             :fn*)))
-  (defmacro def (fn* [expr]
+             :fn*))
+  (defmacro def [expr]
     (prepend (rest expr)
-             :def*)))
-  (defmacro defn (fn* [expr]
-    [:def (second expr) (prepend (rest (rest expr)) :fn)]))
+             :def*))
+  (defmacro defn [expr]
+    [:def (second expr) (prepend (rest (rest expr)) :fn)])
 
-  (defmacro -> (fn* [expr]
+  (defmacro -> [expr]
     (def* params (rest expr))
     (if (empty? (rest params))
       (first params)
       (prepend (prepend (rest (last params))
                         (init expr))
-               (first (last params))))))
+               (first (last params)))))
 
-  (defmacro when (fn* [expr]
+  (defmacro when [expr]
     [:if (second expr)
       (prepend (rest (rest expr))
                :do)
-      nil]))
+      nil])
 
-  (defmacro unless (fn* [expr]
+  (defmacro unless [expr]
     [:if (second expr)
       nil
       (prepend (rest (rest expr))
-               :do)]))
+               :do)])
 
   (defn not [x] (if x false true))
   (defn incr [x] (+ 1 x))
