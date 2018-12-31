@@ -27,11 +27,13 @@ A functional programming language.
 ### Installation
 ```bash
 $ git clone https://github.com/pseudo-random/lang lang
+$ cd lang
+$ bash build.sh
 ```
 
 To compile a file:
 ```bash
-$ python3 src/compiler_py/main.py <filename>
+$ node compile.js path/to/file.txt
 ```
 
 ### Learning
