@@ -1,0 +1,9 @@
+(defmutable! test 1)
+
+(defn count! []
+  (when (< test 10)
+    (print test)
+    (set! test (incr test))
+    (recur)))
+
+(count!)

@@ -49,6 +49,15 @@
     (call? expr :def*) {:type  :def
                         :name  (second expr)
                         :value (transform (third expr) quote-depth)}
+
+    (call? expr :defmutable!) {:type :defmut
+                               :name (transform (second expr) quote-depth)
+                               :value (transform (third expr) quote-depth)}
+
+    (call? expr :set!) {:type  :assign
+                        :name  (transform (second expr) quote-depth)
+                        :value (transform (third expr) quote-depth)}
+
     (call? expr :do)   {:type     :do
                         :children (map (rest expr)
                                        (curry transform quote-depth))}

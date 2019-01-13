@@ -220,6 +220,11 @@
                                      "/*" node/name "*/ ="
                                      (generate node/value))
 
+    (= node/type :defmut)    (format "let "
+                                     (generate node/name)
+                                     " = "
+                                     (generate node/value))
+
     (= node/type :assign)    (format (generate node/name) " = " (generate node/value))
 
     (= node/type :if)        (format "(istrue (" (generate node/cond)
