@@ -73,6 +73,7 @@
 (defn collect-exports [node]
   (cond
     (= node/type :def)    [node/name]
+    (= node/type :defmut) [node/name/value]
     (= node/type :import) node/modules
     :else                 []))
 
