@@ -104,6 +104,7 @@ function apply (func, args) {
 }
 
 function toJS (x) {
+  if (x === null) { return null }
   if (x.toJS) { return x.toJS () }
   return x
 }

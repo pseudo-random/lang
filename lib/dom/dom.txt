@@ -34,14 +34,29 @@
 (defn append-child! [element child]
   (internal js-method element appendChild child))
 
+(defn remove-child! [element child]
+  (internal js-method element removeChild child))
+
+(defn add-event-listener! [element event func]
+  (internal js-method element addEventListener event func))
+
 (defn set-attribute! [element name value]
-  (internal js-method element setAttribute (->str name) (->str value)))
+  (internal js-method element setAttribute (->str name) (internal to-js value)))
 
 (defn nth-child [element index]
   (internal js-method element children.item index))
 
 (defn attributes-names [element]
   (internal js-method element getAttributeNames))
+
+(defn flatten-tree [tree]
+  (cond
+    (and (list? tree)
+         (or (empty? tree) (list? (first tree))))
+      (flat-map tree flatten-tree)
+    (list? tree) [(concat [(first tree) (second tree)]
+                          (flat-map (second-rest tree) flatten-tree))]
+    :else        [tree]))
 
 (defn to-element [tree namespace]
   (if (list? tree)
@@ -52,14 +67,18 @@
                              (create-element-namespace! (first tree) namespace)
                              (create-element! (first tree))))
       (map-pairs attributes (fn [key value]
-        (set-attribute! element key value)))
+        (when (!= key :events)
+          (set-attribute! element key value))))
+      (when attributes/events
+        (map-pairs attributes/events (fn [key value]
+          (add-event-listener! element (->str key) value))))
       (each body (fn [child]
         (append-child! element (to-element child namespace))))
       element)
     (create-text-node! tree)))
 
 (defn html-to-element [html]
-  (to-element html nil))
+  (to-element (first (flatten-tree html)) nil))
 
 (defn svg-to-element [svg]
-  (to-element svg "http://www.w3.org/2000/svg"))
+  (to-element (first (flatten-tree svg)) "http://www.w3.org/2000/svg"))

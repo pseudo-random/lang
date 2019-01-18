@@ -511,5 +511,5 @@
   (internal read))
 
 (defn log [x]
-  (print x)
+  (print (prn x))
   x)
