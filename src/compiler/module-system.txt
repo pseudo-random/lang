@@ -33,7 +33,9 @@
 (def FILE_EXTENSION ".txt")
 
 (defn collect-dependencies [block module-path]
-  (def paths [["lib"] (init module-path)])
+  (def paths (if (> (len module-path) 2)
+               [["lib"] (init module-path) (init (init module-path))]
+               [["lib"] (init module-path)]))
 
   (defn module-paths [name]
     (-> (flat-map paths (fn [path]
