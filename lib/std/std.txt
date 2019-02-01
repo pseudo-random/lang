@@ -224,6 +224,16 @@
       (zip-with (rest a) (rest b) func)
       (func (first a) (first b)))))
 
+(defn map-it-from [list func it]
+  (if (empty? list)
+    list
+    (prepend
+      (map-it-from (rest list) func (incr it))
+      (func (first list) it))))
+
+(defn map-it [list func]
+  (map-it-from list func 0))
+
 (defn filter-it' [list func it]
   (if (empty? list)
     list
