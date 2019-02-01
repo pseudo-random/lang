@@ -87,6 +87,13 @@
 (defn insert [arr key value] (internal insert arr key value))
 (defn remove [arr key value] (internal remove arr key value))
 (defn keys [arr] (internal keys arr))
+(defn vals [arr]
+  (fold (keys arr) [] (fn [key yet]
+    (prepend yet (nth arr key)))))
+
+(defn pairs [arr]
+  (fold (keys arr) [] (fn [key yet]
+    (prepend yet [key (nth arr key)]))))
 
 (defn map-pairs [array func]
   (fold (keys array) {} (fn [key acc]
