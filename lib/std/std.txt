@@ -295,16 +295,17 @@
       (concat (rest list0) list1)
       (first list0))))
 
-(defn where [list path item]
+(defn where [data path item]
   (cond
     (empty? path)       item
-    (= (first path) -1) (append (init list)
-                                (where (last list) (rest path) item))
-    :else               (let [index (first path)]
-                          (concat (take list index)
-                                  (prepend (drop list (incr index))
-                                           (where (nth list index)
-                                                  (rest path) item))))))
+    (= (first path) -1) (append (init data)        ; TODO
+                                (where (last data)
+                                       (rest path)
+                                       item))
+    :else               (insert data (first path)
+                                (where (nth data (first path))
+                                       (rest path)
+                                       item))))
 
 (defn apply-where [data path func]
   (cond

@@ -20,11 +20,27 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 
-(import test-core)
-(import test-std)
-(import test-list)
-(import test-str)
-(import test-set)
-(import test-math)
-(import test-date)
-(import test-map)
+(import test)
+
+(test/test "map/insert"
+  (insert {} :a 1)     = {:a 1}
+  (insert {:a 1} :a 2) = {:a 2}
+  (insert {:a 1} :b 2) = {:a 1 :b 2}
+  (insert {:a 1} 2 :b) = {:a 1 2 :b})
+
+(test/test "map/nth"
+  (nth {:a 1} :a) = 1
+  (nth {:a 1} :b) = nil
+  (nth {:a 1} 1)  = nil
+  (nth {1 :a} 1)  = :a)
+
+(test/test "map/where"
+  (where {:a 1 :b {:c 1}} [:b :c] 2) = {:a 1 :b {:c 2}}
+  (where {:a 1 :b {:c 1}} [:b :d] 2) = {:a 1 :b {:c 1 :d 2}})
+
+(test/test "map/apply-where"
+  (apply-where {:a 1 :b 2} [:a] incr)         = {:a 2 :b 2}
+  (apply-where {:a {:b 1} :c 2} [:a :b] incr) = {:a {:b 2} :c 2})
+
+(test/test "map/map-values"
+  (map-values {:a 1 :b 2} incr) = {:a 2 :b 3})
