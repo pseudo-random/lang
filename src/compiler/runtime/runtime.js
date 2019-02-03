@@ -291,6 +291,10 @@ class ListEmpty {
     return []
   }
 
+  insert (key, value) {
+    return new List(null, this).insert (key-1, value)
+  }
+
   toJS () { return this.toVector () }
 }
 
@@ -375,6 +379,14 @@ class List {
 
   emptyOf () {
     return new ListEmpty ()
+  }
+
+  insert (key, value) {
+    // TODO: Optimize, use loops instead of recursion?
+    if (key === 0) {
+      return new List (value, this._rest)
+    }
+    return new List (this._first, this._rest.insert (key-1, value))
   }
 
   toVector () {

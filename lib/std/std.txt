@@ -306,6 +306,14 @@
                                            (where (nth list index)
                                                   (rest path) item))))))
 
+(defn apply-where [data path func]
+  (cond
+    (empty? path) (func data)
+    :else         (insert data (first path)
+                          (apply-where (nth data (first path))
+                                       (rest path)
+                                       func))))
+
 (defn find [list func]
   (if (empty? list)
     nil

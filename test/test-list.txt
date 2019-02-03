@@ -167,6 +167,12 @@
   (where [3 2 4] [1] 1)            = [3 1 4]
   (where [[1] [2] [3 -4]] [2 1] 4) = [[1] [2] [3 4]])
 
+(test/test "list/apply-where"
+  (apply-where [1 2 3] [1] incr)       = [1 3 3]
+  (apply-where [1 2 3] [0] incr)       = [2 2 3]
+  (apply-where [[1] 2 3] [0] empty-of) = [[] 2 3]
+  (apply-where [[1 2] 3] [0 1] incr)   = [[1 3] 3])
+
 (test/test "list/find"
   (find [1 2 3 4] (curry = 2))  = 2
   (find [1 2 3 4] (curry = -1)) = nil)
