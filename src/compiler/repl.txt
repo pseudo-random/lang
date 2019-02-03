@@ -59,8 +59,3 @@
       (repl-eval!)
       (prn) (print))
   (prompt!))
-
-(eval/run-javascript-in! generate/runtime javascript-context)
-(load-std! (io/read! ["lib" "std" "std.txt"] "utf-8"))
-
-(prompt!)
