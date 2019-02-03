@@ -3,21 +3,21 @@
 A functional programming language.
 
 ```clojure
-(print "Hello, World!")
+(print "Hello, world!")
 ```
 
 ### Features
 - First-Class Functions & Closures
 - Immutable Data Structures
 - Dynamic Type System
-- Macro System (only supported by self-hosted compiler)
+- Macro System
 
 ### Example
 
 **Factorial:**
 ```clojure
 (defn fact [x]
-  (if (= x 1)
+  (if (= x 0)
     1
     (* (fact (decr x)) x)))
 
