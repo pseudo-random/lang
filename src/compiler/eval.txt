@@ -29,7 +29,9 @@
 (defn create-javascript-context! [scope]
   (let [scope'  (-> (insert scope :symbols
                             (internal js-property symbols))
-                    (insert :console {:log print}))
+                    (insert :console {:log print
+                                      :time (fn [name] (internal js console.time name))
+                                      :timeEnd (fn [name] (internal js console.timeEnd name))}))
         context (internal to-js scope')]
     (internal js vm.createContext context)
     context))

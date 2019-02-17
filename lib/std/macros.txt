@@ -169,3 +169,9 @@
   :(fn [$(gensym :arg)]
      $(concat [(second expr) (gensym :arg)]
               (second-rest expr))))
+
+(defmacro time [expr]
+  :(do (internal js console.time $(->str (second expr)))
+       (def $(gensym :res) $(second expr))
+       (internal js console.timeEnd $(->str (second expr)))
+       $(gensym :res)))
