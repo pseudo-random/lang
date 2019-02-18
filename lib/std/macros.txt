@@ -92,7 +92,6 @@
                    (second-rest expr))
            :do))
 
-# Loops
 (defmacro loop [expr]
   (def args (second expr))
   (def initial-values (third expr))
@@ -101,69 +100,6 @@
   (def func (prepend (prepend body args) :fn*))
 
   (prepend initial-values func))
-
-## dotimes
-;(dotimes (x :in [1 2 3 4 5] :when (even? x))
-;  (incr x))
-
-;((fn [<list>]
-;  (def x (first <list>))
-;  (unless (empty? <list>)
-;    (when (even? x)
-;      (incr x))
-;    (recur (rest list))) [1 2 3 4 5])
-
-;[3 5]
-
-# match
-(defmacro case [expr]
-  (def value (second expr))
-  (def pattern (third expr))
-
-  (defn quote? [expr]
-    (and (list? expr)
-         (not-empty? expr)
-         (= (first expr) :quote)))
-
-  (defn match-quoted [pattern- index]
-    (cond
-      (empty? pattern-)
-        []
-      (= (first (first pattern-)) :unquote)
-        (prepend (match-quoted (rest pattern-) (incr index))
-                 :(case (nth $value $index)
-                        $(second (first pattern-))))
-      :else
-        (prepend (match-quoted (rest pattern-) (incr index))
-                 :(case (nth $value $index)
-                        $[:quote (first pattern-)]))))
-
-  (cond
-    (quote? pattern)
-      (if (list? (second pattern))
-        (concat :(and (list? $(second expr)))
-                      (match-quoted (second pattern) 0))
-        :(= $(second expr) $(third expr)))
-    (list? pattern)
-      (concat [(first pattern) (second expr)] (second-rest pattern))
-    (= pattern :_)
-      :(true? $(second expr))
-    :else
-      :(= $(second expr) $(third expr))))
-
-(defmacro if-case [expr]
-  :(if (case $(second expr) $(third expr))
-    $(fourth expr)
-    $(fifth expr)))
-
-(defmacro match [expr]
-  (if (empty? (fourth-rest expr))
-    [:if-case (second expr) (third expr)
-      (fourth expr)
-      nil]
-    [:if-case (second expr) (third expr)
-      (fourth expr)
-      (concat [:match (second expr)] (fourth-rest expr))]))
 
 (defmacro curry [expr]
   :(fn [$(gensym :arg)]
@@ -175,3 +111,16 @@
        (def $(gensym :res) $(second expr))
        (internal js console.timeEnd $(->str (second expr)))
        $(gensym :res)))
+
+(defmacro match [expr]
+  (let [value (second expr)
+        cases (second-rest expr)]
+    (if (symbol? value)
+      (cond
+        (empty? cases)  nil
+        (one? cases)    (first cases)
+        :else           :(if (= $value $(first cases))
+                           $(second cases)
+                           $(concat :(match $value) (second-rest cases))))
+      :(let [$(gensym :value) $value]
+         $(where expr [1] (gensym :value))))))

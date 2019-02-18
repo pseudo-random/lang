@@ -45,9 +45,10 @@
    :third third :fourth fourth
    :fifth fifth :nth    nth
 
-   :list?   list?   :rest    rest
+   :list?   list?   :rest    rest   :one?    one?
    :init    init    :last    last   :empty?  empty?
    :prepend prepend :append  append :concat  concat
+   :where   where   :apply-where apply-where 
 
    :not-empty?  not-empty? :second-rest second-rest
    :third-rest  third-rest :fourth-rest fourth-rest
@@ -57,6 +58,7 @@
 
    :format      format
 
+   :symbol? symbol?
    :->str ->str :->symbol ->symbol :->int ->int})
 
 (defn create-gensym [depth]
