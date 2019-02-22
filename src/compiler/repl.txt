@@ -41,7 +41,44 @@
       (macro-expand/expand-macros)
       (each repl-eval!)))
 
-(defn prompt! [] (cli/input! "> " repl!))
+(defn balance [text depth string? comment?]
+  (cond
+    (empty? text)        {:depth depth :string? string? :comment? comment?}
+    comment?             (if (= (first text) \\n)
+                           (recur (rest text) false false)
+                           (recur (rest text) false true))
+    (= (first text) \;)  (recur (rest text) depth false true)
+    string?              (cond
+                           (= (first text) \\\) (recur (second-rest text) depth string? comment?)
+                           (= (first text) \\") (recur (rest text) depth false false)
+                           :else                (recur (rest text) depth true false))
+
+    (= (first text) \")  (recur (rest text) depth true false)
+    (= (first text) \\\) (if (= (second text) \\\)
+                           (recur (third-rest text) depth string? comment?)
+                           (recur (second-rest text) depth string? comment?))
+    :else                (recur (rest text)
+                                (match (first text)
+                                  \( (incr depth) \[ (incr depth) \{ (incr depth)
+                                  \) (decr depth) \] (decr depth) \} (decr depth)
+                                  depth)
+                                string?
+                                comment?)))
+
+(defn balanced? [text-balance]
+  (and (not text-balance/string?)
+       (not text-balance/comment?)
+       (= text-balance/depth 0)))
+
+(defn handle-input [text]
+  (let [text-balance (balance text 0 false false)]
+    (if (balanced? text-balance)
+      (repl! text)
+      (cli/input! "| " (fn [line]
+        (handle-input (format text "\n" line)))))))
+
+(defn prompt! []
+  (cli/input! "▶ " handle-input))
 
 (defn repl-eval! [expr]
   (-> (transform/to-syntax-tree expr)
@@ -51,7 +88,7 @@
       (generate/generate)
       (eval/run-javascript-in! javascript-context)))
 
-(defn repl! [text scope]
+(defn repl! [text]
   (-> (format (io/read! ["lib" "std" "macros.txt"] "utf-8") text)
       (parser/parse)
       (macro-expand/expand-macros)
