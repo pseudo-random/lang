@@ -358,6 +358,29 @@ def macro_let (ast, env):
         *ast[2:]
     ])
 
+# (match x
+#   abc)
+def macro_match (ast, env):
+    if len (ast) == 2:
+        return node (NODE_NIL, [], "nil")
+    if len (ast) == 3:
+        return ast[-1]
+
+    return node (NODE_S_EXPR, [
+        node (NODE_NAME, [], "if"),
+        node (NODE_S_EXPR, [
+            node (NODE_NAME, [], "="),
+            ast[1],
+            ast[2]
+        ]),
+        ast[3],
+        node (NODE_S_EXPR, [
+            node (NODE_NAME, [], "match"),
+            ast[1],
+            *ast[3:]
+        ])
+    ])
+
 def expand_macros (ast, env):
     macros = {
         "def" : macro_def,
@@ -380,7 +403,8 @@ def expand_macros (ast, env):
         "defmacro": macro_defmacro,
         "deftype" : macro_deftype,
         "let": macro_let,
-        "import": macro_import
+        "import": macro_import,
+        "match": macro_match
     }
 
     def walk (ast_node):

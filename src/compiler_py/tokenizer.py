@@ -120,6 +120,8 @@ def tokenize (code):
                             tokens.append (token (TOKEN_VALUE_CHAR, '\r', line))
                         elif char == 's':
                             tokens.append (token (TOKEN_VALUE_CHAR, ' ', line))
+                        elif char == '\"':
+                            tokens.append (token (TOKEN_VALUE_CHAR, '\"', line))
                         else:
                             print ("Tokenizer Error: Expected '\\', 'n', 't', 's' or 'r' after \\\\")
                             sys.exit ()
