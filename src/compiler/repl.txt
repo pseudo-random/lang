@@ -43,16 +43,15 @@
 
 (defn balance [text depth string? comment?]
   (cond
-    (empty? text)        {:depth depth :string? string? :comment? comment?}
+    (empty? text)        {:depth depth :string? string? :comment? false}
     comment?             (if (= (first text) \\n)
-                           (recur (rest text) false false)
-                           (recur (rest text) false true))
-    (= (first text) \;)  (recur (rest text) depth false true)
+                           (recur (rest text) depth false false)
+                           (recur (rest text) depth false true))
     string?              (cond
                            (= (first text) \\\) (recur (second-rest text) depth string? comment?)
                            (= (first text) \\") (recur (rest text) depth false false)
                            :else                (recur (rest text) depth true false))
-
+    (= (first text) \;)  (recur (rest text) depth false true)
     (= (first text) \")  (recur (rest text) depth true false)
     (= (first text) \\\) (if (= (second text) \\\)
                            (recur (third-rest text) depth string? comment?)
