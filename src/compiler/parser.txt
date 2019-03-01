@@ -92,7 +92,7 @@
   (cond
     (and (not-empty? str)
          (symbol-character? (first str)))
-      (recur (rest str) (append yet (first str)))
+      (recur (rest str) (format yet (first str)))
     :else
       (if (= yet "")
         nil
@@ -167,17 +167,26 @@
     :else
       nil))
 
+(defn parse-unicode [str yet]
+  (if (not (->digit (first str)))
+     (parser-result* (->char (parse-number-base yet 0 16)) str)
+     (recur (rest str)
+            (format yet (first str)))))
+
 (defn parse-string [str]
   (defn parse-string' [str yet]
     (cond
       (empty? str)
         nil
+      (and (= (first str) \\\) (= (second str) \u))
+        (let [res (parse-unicode (second-rest str))]
+          (recur res/rest-str (format yet res/expr)))
       (= (first str) \\\)
-        (recur (rest (rest str)) (append yet (unescape (second str))))
+        (recur (second-rest str) (format yet (unescape (second str))))
       (= (first str) \")
         (parser-result* yet str)
       :else
-        (recur (rest str) (append yet (first str)))))
+        (recur (rest str) (format yet (first str)))))
 
   (when (next? str "\"")
     (def parsed (parse-string' (rest str) ""))
@@ -187,9 +196,10 @@
 
 (defn parse-char [str]
   (when (next? str "\\")
-    (if (next? str "\\\\")
-      (parser-result* (unescape (third str)) (rest (rest (rest str))))
-      (parser-result* (second str) (rest (rest str))))))
+    (cond
+      (next? str "\\\\u") (parse-unicode (third-rest str) "")
+      (next? str "\\\\")  (parser-result* (unescape (third str)) (rest (rest (rest str))))
+      :else               (parser-result* (second str) (rest (rest str))))))
 
 (defn parse-values [str yet]
   (def parsed-value (parse-value (remove-whitespace str)))
@@ -338,21 +348,21 @@
   (parse "[| | | |]")           = [(vector* (vector*) (vector*) (vector*))]
   (parse "[| [||] | [||] |]")   = [(vector* (vector* (vector*)) (vector* (vector*)))])
 
-(def expr (parse "
-[| 1 2 3 | 4 5 6 | 7 8 9 |]
-
-(defn remove-whitespace [str]
-        (cond
-          (empty? str)              str
-          (whitespace? (first str)) (recur (rest str))
-          (or (= (first str) \\;)
-              (= (first str) \\#))   (recur (drop-while str (fn [x] (!= x \\\\n))))
-          :else                     str))
-
-          (defn whitespace? [chr]
-            (or (= chr \\\\s)
-                (= chr \\\\n)
-                (= chr \\\\t)
-                (= chr \\\\r)))
-        0xff B1010 0x B -> 1234567890 + - not x \"\\\"\""))
-(print (prn expr))
+;(def expr (parse "
+;[| 1 2 3 | 4 5 6 | 7 8 9 |]
+;
+;(defn remove-whitespace [str]
+;        (cond
+;          (empty? str)              str
+;          (whitespace? (first str)) (recur (rest str))
+;          (or (= (first str) \\;)
+;              (= (first str) \\#))   (recur (drop-while str (fn [x] (!= x \\\\n))))
+;          :else                     str))
+;
+;          (defn whitespace? [chr]
+;            (or (= chr \\\\s)
+;                (= chr \\\\n)
+;                (= chr \\\\t)
+;                (= chr \\\\r)))
+;        0xff B1010 0x B -> 1234567890 + - not x \"\\\"\""))
+;(print (prn expr))
