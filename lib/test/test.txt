@@ -20,11 +20,6 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 
-
-(defn printm text
-  (each text write)
-  (terpri))
-
 (defn test params
   (def name (first params))
   (def tests
@@ -35,24 +30,26 @@
                  (let [res (first test)
                        operator (second test)
                        expected (third test)]
-                   (if (operator res expected)
-                     [true res expected]
-                     [false res expected])))))
+                   {:success  (operator res expected)
+                    :result   res
+                    :expected expected}))))
 
-  (def count (-> (filter results (fn [x] (first x)))
+  (def count (-> (filter results (fn [result] result/success)) ; (filter results _/success)
                  (len)))
 
   (def test-count (len tests))
 
-  (write name)
+  ; TODO: Color
   (if (= count test-count)
-    (print "\t[Passed]")
-    (do (printm "\t[" count "/" test-count "]")
-        (each-it results (fn [it x]
-                           (when (= (first x) false)
-                             (printm "  (" it ") Test Failed "
-                                     "Result: " (prn (second x))
-                                     " Expected: " (prn (third x)))))))))
+    (print "[✓]\t" name)
+    (print "[" count "/" test-count "]\t" name))
+
+  (unless (= count test-count)
+    (each-it results (fn [it result]
+      (unless result/success
+        (print "  (" it ") Test Failed "
+               "Result: " (prn result/result)
+               " Expected: " (prn result/expected)))))))
 
 (import random)
 
@@ -85,8 +82,8 @@
                     (filter failed?))
         count   (len results)]
     (if (empty? failed)
-      (print (format name " [Passed]"))
-      (print (format name " [" (len failed) "/" count "]\n"
+      (print (format "[✓]\t" name))
+      (print (format "[" (len failed) "/" count "]\t" name "\n"
                      (format-errors failed))))))
 
 (defn eq [x y]
