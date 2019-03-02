@@ -116,6 +116,7 @@
     (= sym "true")   true
     (= sym "false")  false
     (= sym "nil")    nil
+    (= sym "_")      :_
     (path? sym)      (parse-path sym)
     :else            (let [num (parse-number sym)] ; TODO
                        (or num (->symbol sym)))))
@@ -267,6 +268,12 @@
     (when parsed
       (parser-result* [:unquote parsed/expr] parsed/rest-str))))
 
+(defn parse-short-fn [str]
+  (when (next? str "@")
+    (def parsed (parse-value (rest str)))
+    (when parsed
+      (parser-result* [:short-fn parsed/expr] parsed/rest-str))))
+
 (defn parse-value [str]
   (or (parse-string str)
       (parse-symbol str "")
@@ -276,7 +283,8 @@
       (parse-map str)
       (parse-char str)
       (parse-quoted str)
-      (parse-unquote str)))
+      (parse-unquote str)
+      (parse-short-fn str)))
 
 (defn parse [str]
   ;(internal js console.time "parse")

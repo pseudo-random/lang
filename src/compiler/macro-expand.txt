@@ -48,13 +48,13 @@
    :list?   list?   :rest    rest   :one?    one?
    :init    init    :last    last   :empty?  empty?
    :prepend prepend :append  append :concat  concat
-   :where   where   :apply-where apply-where 
+   :where   where   :apply-where apply-where
 
    :not-empty?  not-empty? :second-rest second-rest
    :third-rest  third-rest :fourth-rest fourth-rest
 
-  ; :map map :filter filter :reduce reduce :reject reject
-   ;:fold fold :zip zip :zip-with zip-with
+   :map map :filter filter :reduce reduce :reject reject
+   :fold fold :zip zip :zip-with zip-with
 
    :format      format
 

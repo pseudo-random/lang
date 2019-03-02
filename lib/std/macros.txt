@@ -124,3 +124,30 @@
                            $(concat :(match $value) (second-rest cases))))
       :(let [$(gensym :value) $value]
          $(where expr [1] (gensym :value))))))
+
+(defmacro short-fn [expr]
+  ; TODO: Support maps, vectors
+
+  (defn call? [expr name]
+    (and (list? expr)
+         (not-empty? expr)
+         (= (first expr) name)))
+
+  (defn insert-arg-quoted [expr depth]
+    (cond
+      (call? expr :quote)   [:quote (insert-arg-quoted (second expr) (incr depth))]
+      (call? expr :unquote) [:unquote (insert-arg-quoted (second expr) (decr depth))]
+      (= depth 0)           (insert-arg expr)
+      (list? expr)          (map expr (fn [item] (insert-arg-quoted item depth)))
+      :else                 expr))
+
+  (defn insert-arg [expr]
+    (cond
+      (= expr :_)            (gensym :arg)
+      (call? expr :short-fn) expr
+      (call? expr :quote)    (insert-arg-quoted expr 0)
+      (list? expr)           (map expr insert-arg)
+      :else                  expr))
+
+  :(fn [$(gensym :arg)]
+    $(insert-arg (second expr))))
