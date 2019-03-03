@@ -20,6 +20,8 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 
+(import colorize)
+
 (defn test params
   (def name (first params))
   (def tests
@@ -41,15 +43,20 @@
 
   ; TODO: Color
   (if (= count test-count)
-    (print "[✓]\t" name)
-    (print "[" count "/" test-count "]\t" name))
+    (-> (format (colorize/colorize "[✓]\t" {:color colorize/green}) name)
+        (print))
+    (-> (format "[" count "/" test-count "]\t" name)
+        (colorize/colorize {:color colorize/red :bold true})
+        (print)))
 
   (unless (= count test-count)
     (each-it results (fn [it result]
       (unless result/success
-        (print "  (" it ") Test Failed "
-               "Result: " (prn result/result)
-               " Expected: " (prn result/expected)))))))
+        (-> (format "  (" it ") Test Failed "
+                    "Result: " (prn result/result)
+                    " Expected: " (prn result/expected))
+            (colorize/colorize {:color colorize/red :bold true})
+            (print)))))))
 
 (import random)
 
