@@ -1,0 +1,8 @@
+(import colorize)
+
+(-> (map (range 0 8) (fn [fg]
+      (map (range 0 8) (fn [bg]
+        (colorize/colorize "Aa" {:color fg :background bg})))))
+    (each (fn [row]
+      (each row write)
+      (terpri))))
