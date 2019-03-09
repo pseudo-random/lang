@@ -447,6 +447,8 @@
 (defn nil? [x] (= (typeof nil) (typeof x)))
 (defn str? [x] (= (typeof "") (typeof x)))
 
+(defn undefined? [x] (= (internal js typeof x) "undefined"))
+
 (defn ->int [x] (internal to-int x))
 (defn ->char [x] (internal to-char x))
 (defn ->symbol [x] (internal to-symbol x))

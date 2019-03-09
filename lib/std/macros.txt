@@ -22,8 +22,32 @@
 
 
 (defmacro fn [expr]
-  (prepend (rest expr)
-           :fn*))
+  (if (list? (second expr))
+    (do (def* optional-arguments (fn* [args]
+          (if (empty? args)
+            []
+            (if (= (second (first args)) :&opt)
+              (map (rest args) (fn* [arg] (second arg)))
+              (recur (rest args))))))
+
+        (def* replace-optional-arguments (fn* [args]
+          (if (empty? args)
+            []
+            (if (= (second (first args)) :&opt)
+              (map (rest args) (fn* [arg] [:unquote (gensym (first (second arg)))]))
+              (prepend (replace-optional-arguments (rest args))
+                       (first args))))))
+
+        (def* create-optional-arguments-checks (fn* [args]
+          (map args (fn* [pair]
+            (def* arg (first pair))
+            (def* value (second pair))
+            :(def* $arg (if (undefined? $(gensym arg)) $value $(gensym arg)))))))
+        
+        (prepend (prepend (concat (create-optional-arguments-checks (optional-arguments (second (second expr)))) (second-rest expr))
+                          [:quote (replace-optional-arguments (second (second expr)))])
+                 :fn*))
+    (prepend (rest expr) :fn*)))
 
 (defmacro def [expr]
   (prepend (rest expr)
