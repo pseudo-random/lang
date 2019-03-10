@@ -698,3 +698,15 @@ class StringIterator {
     return ""
   }
 }
+
+const globalScope = this
+class JSNamespace {
+  constructor () {}
+  nth (x) {
+    return globalScope[x.toString ()]
+  }
+}
+
+Object.prototype.nth = function (index) {
+  return this[index.toString ()]
+}

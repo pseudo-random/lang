@@ -447,6 +447,7 @@
 (defn nil? [x] (= (typeof nil) (typeof x)))
 (defn str? [x] (= (typeof "") (typeof x)))
 
+(def js (internal js-namespace))
 (defn undefined? [x] (= (internal js typeof x) "undefined"))
 
 (defn ->int [x] (internal to-int x))

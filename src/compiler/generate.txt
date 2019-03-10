@@ -139,6 +139,8 @@
                                 (format "let " lib "=require(\""
                                         (flat-map lib utils/escape-char) "\")"))
 
+    (= node/name :js-namespace) "new JSNamespace ()"
+
     (= node/name :js-property) (-> (map node/params (fn [node] (->str node/value)))
                                    (interpose "."))
     (= node/name :to-js)       (call "toJS" node/params)
@@ -161,17 +163,19 @@
           "return null; }"))
 
 (defn generate-type-eq [name keys]
-  (format "eq (other) { return this.type === other.type && "
-          (-> (map keys (fn [key]
-                (format "eq(this." (generate key) ", other." (generate key) ")")))
-              (interpose " && "))
-          ";}"))
+  (let [conditions (-> (map keys (fn [key]
+                         (format "eq(this." (generate key) ", other." (generate key) ")")))
+                       (interpose " && "))]
+    (if (empty? conditions)
+      (format "eq (other) { return this.type === other.type; }")
+      (format "eq (other) { return this.type === other.type && " conditions ";}"))))
 
 (defn generate-type [name keys]
   (format "(function (" (generate-parameter-list keys) ") {return new (class " (generate name) "{"
           (generate-type-constructor name keys)
           (generate-type-nth name keys)
           (generate-type-eq name keys)
+          "printToString () { return \"\" }"
           "})(" (generate-parameter-list keys) ")})"))
 
 (defn generate-import [modules]

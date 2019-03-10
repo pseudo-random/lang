@@ -135,6 +135,8 @@ def generate_internal (node):
         return "(" + generate (node[1]) + ")." + node[2].value + "(" + ",".join ([generate (x) for x in node [3:]]) + ")"
     elif name == "js-property":
         return ".".join ([node.value for node in node[1:]])
+    elif name == "js-namespace":
+        return "new JSNamespace ()"
     else:
         raise Exception ("Unknown internal: " + name)
 
