@@ -68,12 +68,11 @@
         std     (compile-std ["lib" "std" "std.txt"])]
     (-> {:type    :root
          :std     std/children
-         :modules modules
+         :modules (map modules (fn [module] (module-system/inline-exports module modules)))
          :symbols (-> (map modules (curry nth :symbols))
                       (prepend std/symbols)
                       (reduce merge))}
         (generate/generate))))
-
 
 ;(io/write! "out2.js"
 ;           ;(compile ["src" "compiler" "parser.txt"])

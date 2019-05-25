@@ -29,6 +29,7 @@
 (import io)
 (import parser)
 (import macro-expand)
+(import translate)
 
 (def FILE_EXTENSION ".txt")
 
@@ -61,6 +62,7 @@
     (cond
       (quote? expr :quote) (collect-quoted (second expr) 1 collect-expr)
       (call? expr :import) (collect-modules-from-import (rest expr))
+      (call? expr :use)    (collect-modules-from-import (rest expr))
       (list? expr)         (flat-map expr collect-expr)
       (array? expr)        (concat (flat-map (keys expr) collect-expr)
                                    (flat-map (array-values expr) collect-expr))
@@ -89,3 +91,13 @@
 
 (defn module-name [path]
   (->symbol (first (split (last path) \.))))
+
+(defn inline-exports [module modules]
+  (insert module :children (map module/children (fn [child]
+    (translate/walk child (fn [node]
+      (if (= node/type :use)
+        (insert node :modules (map node/modules (fn [module]
+          {:name    module/name
+           :exports (-> (find modules (fn [mod] (= mod/name module/name)))
+                        (nth :exports))})))
+        node)) (translate/create-context))))))

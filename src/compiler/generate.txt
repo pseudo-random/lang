@@ -186,6 +186,18 @@
                          (interpose ", "))]
     (format "let " bindings)))
 
+(defn generate-use [modules]
+  (let [bindings     (-> (flat-map modules (fn [module]
+                           (map module/exports (fn [export]
+                             (format (generate-name export)
+                                     " = lib"
+                                     (generate-name module/name)
+                                     ".exports["
+                                     (->int export)
+                                     "]")))))
+                         (interpose ", "))]
+    (format "let " bindings)))
+
 (defn generate-module-exports [exports]
   (format "{" (-> (map exports (fn [export]
                     (format (->int export) ": "
@@ -259,6 +271,7 @@
     (= node/type :array)     (generate-array node/keys node/values)
     (= node/type :str)       (format "\"" (flat-map node/value utils/escape-char) "\"")
     (= node/type :import)    (generate-import node/modules)
+    (= node/type :use)       (generate-use node/modules)
     (= node/type :module)    (generate-module node/name node/children node/exports)
 
     (= node/type :nil)  "null"
