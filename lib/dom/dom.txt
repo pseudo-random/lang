@@ -20,7 +20,7 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 
-(defmutable! body (internal js-property document body))
+(var body (internal js-property document body))
 
 (defn create-element! [name]
   (internal js document.createElement (->str name)))
@@ -63,7 +63,7 @@
     (let [type       (first tree)
           attributes (second tree)
           body       (second-rest tree)]
-      (defmutable! element (if namespace
+      (var element (if namespace
                              (create-element-namespace! (first tree) namespace)
                              (create-element! (first tree))))
       (map-pairs attributes (fn [key value]

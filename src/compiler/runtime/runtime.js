@@ -708,5 +708,9 @@ class JSNamespace {
 }
 
 Object.prototype.nth = function (index) {
-  return this[index.toString ()]
+  let prop = this[index.toString ()]
+  if (typeof prop === "function") {
+    return prop.bind(this)
+  }
+  return prop
 }
