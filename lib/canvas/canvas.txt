@@ -1,0 +1,16 @@
+(defn universe [canvas-properties init update render]
+  (var canvas-element (js/document/createElement "canvas"))
+  (when canvas-properties/size
+    (canvas-element/setAttribute "width" (first canvas-properties/size)))
+    (canvas-element/setAttribute "height" (second canvas-properties/size))
+  (js/document/body/appendChild canvas-element)
+
+  (var ctx (canvas-element/getContext "2d"))
+
+  (var state (init))
+  (defn main-loop [time]
+    (mut state (update state))
+    (render state ctx)
+    (js/requestAnimationFrame main-loop))
+
+  (main-loop))
